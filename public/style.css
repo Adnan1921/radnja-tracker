@@ -1,0 +1,791 @@
+/* Reset i varijable */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-elevated: #1f2b47;
+  --accent: #e94560;
+  --accent-glow: rgba(233, 69, 96, 0.3);
+  --success: #00d9a5;
+  --success-glow: rgba(0, 217, 165, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0b2;
+  --text-muted: #6b6b80;
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  position: relative;
+}
+
+/* ============ LOGIN SCREEN ============ */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+.login-container {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.login-logo {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.login-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg, var(--accent), #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.btn-login {
+  padding: 18px;
+  background: linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 8px 25px var(--accent-glow);
+  margin-top: 8px;
+}
+
+.btn-login:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px var(--accent-glow);
+}
+
+.btn-login:active {
+  transform: scale(0.98);
+}
+
+.login-error {
+  color: var(--accent);
+  font-size: 0.9rem;
+  min-height: 24px;
+}
+
+/* ============ MAIN APP ============ */
+.main-app {
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-badge {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  padding: 6px 12px;
+  border-radius: 16px;
+}
+
+.btn-logout {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.datum-display {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: var(--bg-card);
+  padding: 8px;
+  margin: 16px;
+  border-radius: 16px;
+  gap: 8px;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.tab:not(.active):hover {
+  background: var(--bg-elevated);
+}
+
+.tab-icon {
+  font-size: 1.1rem;
+}
+
+/* Content */
+.content {
+  padding: 0 16px 100px;
+}
+
+/* Promet kartica */
+.promet-kartica {
+  background: linear-gradient(135deg, var(--accent) 0%, #ff6b6b 100%);
+  border-radius: 20px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 40px var(--accent-glow);
+  animation: fadeInUp 0.5s ease;
+}
+
+.promet-kartica.mjesecni {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.3);
+}
+
+.promet-label {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.promet-iznos {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.promet-broj {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+/* Sekcije */
+.section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  padding-left: 4px;
+}
+
+/* Artikli grid */
+.artikli-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.artikal-btn {
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.artikal-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.artikal-btn:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.artikal-btn:hover::before {
+  opacity: 0.1;
+}
+
+.artikal-btn.selected {
+  border-color: var(--success);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 25px var(--success-glow);
+}
+
+.artikal-btn.selected::before {
+  background: linear-gradient(135deg, var(--success) 0%, transparent 100%);
+  opacity: 0.15;
+}
+
+.artikal-ikona {
+  font-size: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.artikal-naziv {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  position: relative;
+  z-index: 1;
+}
+
+/* Cijena sekcija */
+.cijena-section {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  animation: fadeInUp 0.4s ease;
+}
+
+.cijena-input-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.cijena-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 60px 18px 20px;
+  font-family: inherit;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.cijena-input:focus {
+  outline: none;
+  border-color: var(--success);
+  box-shadow: 0 0 20px var(--success-glow);
+}
+
+.cijena-input::placeholder {
+  color: var(--text-muted);
+}
+
+.valuta {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Brzi iznosi */
+.brzi-iznosi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.brzi-iznos {
+  flex: 1;
+  min-width: calc(25% - 6px);
+  padding: 12px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.brzi-iznos:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.brzi-iznos:active {
+  transform: scale(0.98);
+}
+
+/* Spremi button */
+.btn-spremi {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--success) 0%, #00b894 100%);
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s;
+  box-shadow: 0 8px 25px var(--success-glow);
+}
+
+.btn-spremi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px var(--success-glow);
+}
+
+.btn-spremi:active {
+  transform: scale(0.98);
+}
+
+.btn-spremi span {
+  font-size: 1.2rem;
+}
+
+/* Prodaje lista */
+.prodaje-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prodaja-item {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  animation: fadeInUp 0.3s ease;
+}
+
+.prodaja-ikona {
+  font-size: 1.5rem;
+}
+
+.prodaja-info {
+  flex: 1;
+}
+
+.prodaja-naziv {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.prodaja-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.prodaja-cijena {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.prodaja-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  transition: all 0.2s;
+  opacity: 0.5;
+}
+
+.prodaja-delete:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.prazno-stanje {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 20px;
+  font-size: 0.9rem;
+}
+
+.prazno-ikona {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+/* Kalendar */
+.kalendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.kalendar-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kalendar-btn:hover {
+  background: var(--bg-elevated);
+  transform: scale(1.05);
+}
+
+.mjesec-godina {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.kalendar {
+  background: var(--bg-card);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+.kalendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.kalendar-header div {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+
+.kalendar-dani {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.kalendar-dan {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+}
+
+.kalendar-dan:hover:not(.prazan):not(.buducnost) {
+  background: var(--bg-elevated);
+}
+
+.kalendar-dan.danas {
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+}
+
+.kalendar-dan.ima-prodaje::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  background: var(--success);
+  border-radius: 50%;
+}
+
+.kalendar-dan.danas.ima-prodaje::after {
+  background: white;
+}
+
+.kalendar-dan.odabran {
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 2px var(--success);
+}
+
+.kalendar-dan.prazan {
+  color: transparent;
+  cursor: default;
+}
+
+.kalendar-dan.buducnost {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Detalji dana */
+.dan-detalji {
+  background: var(--bg-card);
+  border-radius: 18px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  animation: fadeInUp 0.4s ease;
+}
+
+.dan-naslov {
+  font-size: 1rem;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+}
+
+.dan-statistika {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dan-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border-radius: 10px;
+}
+
+.dan-stat-ikona {
+  font-size: 1.2rem;
+}
+
+.dan-stat-info {
+  flex: 1;
+}
+
+.dan-stat-naziv {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.dan-stat-vrijednost {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dan-prodaje {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dan-prodaje h4 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--success);
+  color: white;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 30px var(--success-glow);
+  z-index: 1000;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Animacije */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* Safari safe area */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .content {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+}

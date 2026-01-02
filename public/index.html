@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Radnja Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+      <div class="login-container">
+        <div class="login-logo">🏪</div>
+        <h1 class="login-title">Radnja Tracker</h1>
+        <form id="loginForm" class="login-form">
+          <div class="form-group">
+            <label for="username">Korisničko ime</label>
+            <input type="text" id="username" name="username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="password">Lozinka</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-login">Prijavi se</button>
+          <div class="login-error" id="loginError"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main App (hidden until login) -->
+    <div class="main-app" id="mainApp" style="display: none;">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <h1>🏪 Radnja</h1>
+          <div class="header-right">
+            <span class="user-badge" id="userBadge"></span>
+            <button class="btn-logout" id="btnLogout">↪</button>
+          </div>
+        </div>
+        <div class="datum-display" id="trenutniDatum"></div>
+      </header>
+
+      <!-- Navigation Tabs -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="prodaja">
+          <span class="tab-icon">💰</span>
+          <span>Prodaja</span>
+        </button>
+        <button class="tab" data-tab="analitika">
+          <span class="tab-icon">📊</span>
+          <span>Analitika</span>
+        </button>
+      </nav>
+
+      <!-- Prodaja Tab -->
+      <main class="content" id="prodaja-tab">
+        <!-- Dnevni promet -->
+        <div class="promet-kartica">
+          <div class="promet-label">Današnji promet</div>
+          <div class="promet-iznos" id="dnevniPromet">0,00 KM</div>
+          <div class="promet-broj" id="brojProdaja">0 prodaja</div>
+        </div>
+
+        <!-- Odabir artikla -->
+        <section class="section">
+          <h2 class="section-title">Odaberi artikal</h2>
+          <div class="artikli-grid" id="artikliGrid">
+            <!-- Artikli se učitavaju dinamički -->
+          </div>
+        </section>
+
+        <!-- Unos cijene -->
+        <section class="section cijena-section" id="cijenaSection" style="display: none;">
+          <h2 class="section-title">Unesi cijenu za <span id="odabraniArtikal"></span></h2>
+          <div class="cijena-input-wrapper">
+            <input type="number" id="cijenaInput" class="cijena-input" placeholder="0" step="1" min="0" inputmode="numeric">
+            <span class="valuta">KM</span>
+          </div>
+          <div class="brzi-iznosi" id="brziIznosi">
+            <!-- Shortcuti se učitavaju dinamički -->
+          </div>
+          <button class="btn-spremi" id="btnSpremi">
+            <span>✓</span> Spremi prodaju
+          </button>
+        </section>
+
+        <!-- Današnje prodaje -->
+        <section class="section">
+          <h2 class="section-title">Današnje prodaje</h2>
+          <div class="prodaje-lista" id="prodajeLista">
+            <!-- Prodaje se učitavaju dinamički -->
+          </div>
+        </section>
+      </main>
+
+      <!-- Analitika Tab -->
+      <main class="content" id="analitika-tab" style="display: none;">
+        <!-- Kalendar navigacija -->
+        <div class="kalendar-nav">
+          <button class="kalendar-btn" id="prevMonth">←</button>
+          <div class="mjesec-godina" id="mjesecGodina"></div>
+          <button class="kalendar-btn" id="nextMonth">→</button>
+        </div>
+
+        <!-- Mjesečna statistika -->
+        <div class="promet-kartica mjesecni">
+          <div class="promet-label">Mjesečni promet</div>
+          <div class="promet-iznos" id="mjesecniPromet">0,00 KM</div>
+          <div class="promet-broj" id="mjesecniBroj">0 prodaja</div>
+        </div>
+
+        <!-- Kalendar -->
+        <div class="kalendar" id="kalendar">
+          <div class="kalendar-header">
+            <div>Pon</div>
+            <div>Uto</div>
+            <div>Sri</div>
+            <div>Čet</div>
+            <div>Pet</div>
+            <div>Sub</div>
+            <div>Ned</div>
+          </div>
+          <div class="kalendar-dani" id="kalendarDani">
+            <!-- Dani se generiraju dinamički -->
+          </div>
+        </div>
+
+        <!-- Detalji dana -->
+        <div class="dan-detalji" id="danDetalji" style="display: none;">
+          <h3 class="dan-naslov" id="danNaslov"></h3>
+          <div class="dan-statistika" id="danStatistika"></div>
+          <div class="dan-prodaje" id="danProdaje"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Toast notifikacija -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

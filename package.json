@@ -1,0 +1,21 @@
+{
+  "name": "radnja-tracker",
+  "version": "1.0.0",
+  "description": "Jednostavna aplikacija za praćenje prometa radnje",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-mongo": "^5.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "mongodb": "^6.3.0"
+  }
+}
