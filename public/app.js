@@ -4,6 +4,7 @@ let odabraniArtikalId = null;
 let trenutniMjesec = new Date().getMonth();
 let trenutnaGodina = new Date().getFullYear();
 let odabraniDatum = null;
+let authToken = localStorage.getItem('authToken');
 
 // Elementi
 const loginScreen = document.getElementById('loginScreen');
@@ -67,8 +68,24 @@ const showToast = (poruka) => {
   setTimeout(() => toast.classList.remove('show'), 3000);
 };
 
-// API pozivi
+// API pozivi s token autentifikacijom
 const api = {
+  async fetch(url, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+      // Token nevažeći, odjavi korisnika
+      authToken = null;
+      localStorage.removeItem('authToken');
+      showLogin();
+      throw new Error('Unauthorized');
+    }
+    return res;
+  },
+  
   async login(username, password) {
     const res = await fetch('/api/login', {
       method: 'POST',
@@ -79,47 +96,46 @@ const api = {
   },
   
   async logout() {
-    const res = await fetch('/api/logout', { method: 'POST' });
-    return res.json();
+    await this.fetch('/api/logout', { method: 'POST' });
+    authToken = null;
+    localStorage.removeItem('authToken');
   },
   
   async checkAuth() {
-    const res = await fetch('/api/me');
+    const res = await this.fetch('/api/me');
     return res.json();
   },
   
   async getArtikli() {
-    const res = await fetch('/api/artikli');
-    if (res.status === 401) throw new Error('Unauthorized');
+    const res = await this.fetch('/api/artikli');
     return res.json();
   },
   
   async dodajProdaju(artikal_id, cijena) {
-    const res = await fetch('/api/prodaje', {
+    const res = await this.fetch('/api/prodaje', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artikal_id, cijena })
     });
     return res.json();
   },
   
   async getProdaje(datum) {
-    const res = await fetch(`/api/prodaje/${datum}`);
+    const res = await this.fetch(`/api/prodaje/${datum}`);
     return res.json();
   },
   
   async getStatistika(datum) {
-    const res = await fetch(`/api/statistika/${datum}`);
+    const res = await this.fetch(`/api/statistika/${datum}`);
     return res.json();
   },
   
   async getStatistikaMjesec(godina, mjesec) {
-    const res = await fetch(`/api/statistika/mjesec/${godina}/${mjesec}`);
+    const res = await this.fetch(`/api/statistika/mjesec/${godina}/${mjesec}`);
     return res.json();
   },
   
   async obrisiProdaju(id) {
-    const res = await fetch(`/api/prodaje/${id}`, { method: 'DELETE' });
+    const res = await this.fetch(`/api/prodaje/${id}`, { method: 'DELETE' });
     return res.json();
   }
 };
@@ -138,6 +154,9 @@ loginForm.addEventListener('submit', async (e) => {
     if (result.error) {
       loginError.textContent = result.error;
     } else {
+      // Spremi token
+      authToken = result.token;
+      localStorage.setItem('authToken', result.token);
       showApp(result.username);
     }
   } catch (error) {
@@ -477,14 +496,18 @@ nextMonth.addEventListener('click', () => {
 // ============ INIT ============
 
 const init = async () => {
-  try {
-    const auth = await api.checkAuth();
-    if (auth.loggedIn) {
-      showApp(auth.username);
-    } else {
+  if (authToken) {
+    try {
+      const auth = await api.checkAuth();
+      if (auth.loggedIn) {
+        showApp(auth.username);
+      } else {
+        showLogin();
+      }
+    } catch (error) {
       showLogin();
     }
-  } catch (error) {
+  } else {
     showLogin();
   }
 };

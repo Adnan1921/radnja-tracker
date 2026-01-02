@@ -1,9 +1,7 @@
 const express = require('express');
-const session = require('express-session');
-const MongoStore = require('connect-mongo');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const cors = require('cors');
+const crypto = require('crypto');
 const path = require('path');
 
 const app = express();
@@ -17,48 +15,40 @@ let db;
 let client;
 
 // Middleware
-app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
-
-// Session setup - koristi MongoDB za storage u produkciji
-const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'radnja-super-secret-key-2024',
-  resave: false,
-  saveUninitialized: false,
-  proxy: true,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
-    httpOnly: true,
-    sameSite: process.env.VERCEL ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 sata
-  }
-};
-
-// Dodaj MongoStore ako imamo MONGODB_URI
-if (process.env.MONGODB_URI) {
-  sessionConfig.store = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60, // 24 sata
-    crypto: {
-      secret: process.env.SESSION_SECRET || 'radnja-super-secret-key-2024'
-    }
-  });
-}
-
-// Trust proxy za Vercel
-app.set('trust proxy', 1);
-
-app.use(session(sessionConfig));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// In-memory token store (za serverless, tokeni se čuvaju u MongoDB)
+const tokens = new Map();
+
 // Auth middleware
-const requireAuth = (req, res, next) => {
-  if (!req.session.userId) {
+const requireAuth = async (req, res, next) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
     return res.status(401).json({ error: 'Niste prijavljeni' });
   }
-  next();
+  
+  try {
+    // Provjeri token u bazi
+    const session = await db.collection('sessions').findOne({ token });
+    if (!session) {
+      return res.status(401).json({ error: 'Nevažeći token' });
+    }
+    
+    // Provjeri istek
+    if (new Date() > new Date(session.expiresAt)) {
+      await db.collection('sessions').deleteOne({ token });
+      return res.status(401).json({ error: 'Sesija istekla' });
+    }
+    
+    req.user = { username: session.username };
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Greška pri autentifikaciji' });
+  }
 };
 
 // Artikli sa shortcutima
@@ -71,7 +61,7 @@ const ARTIKLI = [
   { id: 6, naziv: 'Ostalo', ikona: '📦', shortcuti: [] }
 ];
 
-// Korisnici (passwordi se hashiraju pri prvom pokretanju)
+// Korisnici
 const KORISNICI = [
   { username: 'SanelaBiber', password: 'sanela123' },
   { username: 'HarisBiber', password: 'haris123' },
@@ -105,6 +95,8 @@ async function connectDB() {
     // Kreiraj indekse
     await db.collection('prodaje').createIndex({ datum: 1 });
     await db.collection('prodaje').createIndex({ korisnik: 1 });
+    await db.collection('sessions').createIndex({ token: 1 });
+    await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     
     return db;
   } catch (error) {
@@ -140,10 +132,18 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka' });
     }
     
-    req.session.userId = user._id.toString();
-    req.session.username = user.username;
+    // Generiraj token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 sata
     
-    res.json({ success: true, username: user.username });
+    // Spremi u bazu
+    await db.collection('sessions').insertOne({
+      token,
+      username: user.username,
+      expiresAt
+    });
+    
+    res.json({ success: true, token, username: user.username });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Greška pri prijavi' });
@@ -151,16 +151,30 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Logout
-app.post('/api/logout', (req, res) => {
-  req.session.destroy();
+app.post('/api/logout', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (token) {
+    await db.collection('sessions').deleteOne({ token });
+  }
   res.json({ success: true });
 });
 
 // Check auth status
-app.get('/api/me', (req, res) => {
-  if (req.session.userId) {
-    res.json({ loggedIn: true, username: req.session.username });
-  } else {
+app.get('/api/me', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.json({ loggedIn: false });
+  }
+  
+  try {
+    const session = await db.collection('sessions').findOne({ token });
+    if (session && new Date() < new Date(session.expiresAt)) {
+      res.json({ loggedIn: true, username: session.username });
+    } else {
+      res.json({ loggedIn: false });
+    }
+  } catch (error) {
     res.json({ loggedIn: false });
   }
 });
@@ -192,7 +206,7 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
       cijena: parseFloat(cijena),
       datum,
       vrijeme,
-      korisnik: req.session.username,
+      korisnik: req.user.username,
       createdAt: now
     });
     
