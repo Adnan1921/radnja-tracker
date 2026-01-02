@@ -25,9 +25,11 @@ const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'radnja-super-secret-key-2024',
   resave: false,
   saveUninitialized: false,
+  proxy: true,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
     httpOnly: true,
+    sameSite: process.env.VERCEL ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 sata
   }
 };
@@ -36,9 +38,15 @@ const sessionConfig = {
 if (process.env.MONGODB_URI) {
   sessionConfig.store = MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60 // 24 sata
+    ttl: 24 * 60 * 60, // 24 sata
+    crypto: {
+      secret: process.env.SESSION_SECRET || 'radnja-super-secret-key-2024'
+    }
   });
 }
+
+// Trust proxy za Vercel
+app.set('trust proxy', 1);
 
 app.use(session(sessionConfig));
 
