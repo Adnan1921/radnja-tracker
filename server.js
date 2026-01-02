@@ -20,8 +20,12 @@ app.use(express.json());
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory token store (za serverless, tokeni se čuvaju u MongoDB)
-const tokens = new Map();
+// User roles - Sajra ima ograničen pristup
+const USER_ROLES = {
+  'SanelaBiber': 'admin',
+  'HarisBiber': 'admin',
+  'Sajra': 'limited'
+};
 
 // Auth middleware
 const requireAuth = async (req, res, next) => {
@@ -32,19 +36,20 @@ const requireAuth = async (req, res, next) => {
   }
   
   try {
-    // Provjeri token u bazi
     const session = await db.collection('sessions').findOne({ token });
     if (!session) {
       return res.status(401).json({ error: 'Nevažeći token' });
     }
     
-    // Provjeri istek
     if (new Date() > new Date(session.expiresAt)) {
       await db.collection('sessions').deleteOne({ token });
       return res.status(401).json({ error: 'Sesija istekla' });
     }
     
-    req.user = { username: session.username };
+    req.user = { 
+      username: session.username,
+      role: USER_ROLES[session.username] || 'limited'
+    };
     next();
   } catch (error) {
     res.status(401).json({ error: 'Greška pri autentifikaciji' });
@@ -63,9 +68,9 @@ const ARTIKLI = [
 
 // Korisnici
 const KORISNICI = [
-  { username: 'SanelaBiber', password: 'sanela123' },
-  { username: 'HarisBiber', password: 'haris123' },
-  { username: 'Sajra', password: 'sajra123' }
+  { username: 'SanelaBiber', password: 'sanela123', role: 'admin' },
+  { username: 'HarisBiber', password: 'haris123', role: 'admin' },
+  { username: 'Sajra', password: 'sajra123', role: 'limited' }
 ];
 
 // Connect to MongoDB
@@ -78,7 +83,6 @@ async function connectDB() {
     db = client.db(DB_NAME);
     console.log('✅ Povezan na MongoDB');
     
-    // Kreiraj korisnike ako ne postoje
     const usersCollection = db.collection('users');
     for (const user of KORISNICI) {
       const exists = await usersCollection.findOne({ username: user.username });
@@ -86,13 +90,13 @@ async function connectDB() {
         const hashedPassword = await bcrypt.hash(user.password, 10);
         await usersCollection.insertOne({
           username: user.username,
-          password: hashedPassword
+          password: hashedPassword,
+          role: user.role
         });
-        console.log(`👤 Kreiran korisnik: ${user.username}`);
+        console.log(`👤 Kreiran korisnik: ${user.username} (${user.role})`);
       }
     }
     
-    // Kreiraj indekse
     await db.collection('prodaje').createIndex({ datum: 1 });
     await db.collection('prodaje').createIndex({ korisnik: 1 });
     await db.collection('sessions').createIndex({ token: 1 });
@@ -117,7 +121,6 @@ app.use(async (req, res, next) => {
 
 // ============ AUTH ROUTES ============
 
-// Login
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   
@@ -132,25 +135,23 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka' });
     }
     
-    // Generiraj token
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 sata
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     
-    // Spremi u bazu
     await db.collection('sessions').insertOne({
       token,
       username: user.username,
       expiresAt
     });
     
-    res.json({ success: true, token, username: user.username });
+    const role = USER_ROLES[user.username] || 'limited';
+    res.json({ success: true, token, username: user.username, role });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Greška pri prijavi' });
   }
 });
 
-// Logout
 app.post('/api/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (token) {
@@ -159,7 +160,6 @@ app.post('/api/logout', async (req, res) => {
   res.json({ success: true });
 });
 
-// Check auth status
 app.get('/api/me', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
@@ -170,7 +170,8 @@ app.get('/api/me', async (req, res) => {
   try {
     const session = await db.collection('sessions').findOne({ token });
     if (session && new Date() < new Date(session.expiresAt)) {
-      res.json({ loggedIn: true, username: session.username });
+      const role = USER_ROLES[session.username] || 'limited';
+      res.json({ loggedIn: true, username: session.username, role });
     } else {
       res.json({ loggedIn: false });
     }
@@ -181,14 +182,13 @@ app.get('/api/me', async (req, res) => {
 
 // ============ API ROUTES ============
 
-// Dohvati sve artikle
 app.get('/api/artikli', requireAuth, (req, res) => {
   res.json(ARTIKLI);
 });
 
-// Dodaj novu prodaju
+// Dodaj novu prodaju - sada s količinom i načinom plaćanja
 app.post('/api/prodaje', requireAuth, async (req, res) => {
-  const { artikal_id, cijena } = req.body;
+  const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes' } = req.body;
   const now = new Date();
   const datum = now.toISOString().split('T')[0];
   const vrijeme = now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
@@ -198,12 +198,17 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Nepoznat artikal' });
   }
   
+  const ukupnaCijena = parseFloat(cijena) * parseInt(kolicina);
+  
   try {
     const result = await db.collection('prodaje').insertOne({
       artikal_id,
       artikal_naziv: artikal.naziv,
       artikal_ikona: artikal.ikona,
       cijena: parseFloat(cijena),
+      kolicina: parseInt(kolicina),
+      ukupno: ukupnaCijena,
+      nacin_placanja,
       datum,
       vrijeme,
       korisnik: req.user.username,
@@ -217,13 +222,20 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
   }
 });
 
-// Dohvati prodaje za određeni datum
+// Dohvati prodaje - limited users vide samo svoje
 app.get('/api/prodaje/:datum', requireAuth, async (req, res) => {
   const { datum } = req.params;
   
   try {
+    let query = { datum };
+    
+    // Limited users vide samo svoje prodaje
+    if (req.user.role === 'limited') {
+      query.korisnik = req.user.username;
+    }
+    
     const prodaje = await db.collection('prodaje')
-      .find({ datum })
+      .find(query)
       .sort({ createdAt: -1 })
       .toArray();
     
@@ -233,17 +245,26 @@ app.get('/api/prodaje/:datum', requireAuth, async (req, res) => {
   }
 });
 
-// Dohvati statistiku za određeni datum
+// Statistika - limited users vide samo svoje
 app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
   const { datum } = req.params;
   
   try {
-    const prodaje = await db.collection('prodaje').find({ datum }).toArray();
+    let query = { datum };
+    if (req.user.role === 'limited') {
+      query.korisnik = req.user.username;
+    }
     
-    const ukupno = prodaje.reduce((sum, p) => sum + p.cijena, 0);
+    const prodaje = await db.collection('prodaje').find(query).toArray();
+    
+    const ukupno = prodaje.reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
     const broj_prodaja = prodaje.length;
+    const ukupno_kolicina = prodaje.reduce((sum, p) => sum + (p.kolicina || 1), 0);
     
-    // Grupiraj po artiklima
+    // Statistika po načinu plaćanja
+    const kes = prodaje.filter(p => p.nacin_placanja !== 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const kartica = prodaje.filter(p => p.nacin_placanja === 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    
     const poArtiklimaMap = {};
     for (const p of prodaje) {
       if (!poArtiklimaMap[p.artikal_id]) {
@@ -251,16 +272,21 @@ app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
           naziv: p.artikal_naziv,
           ikona: p.artikal_ikona,
           broj: 0,
+          kolicina: 0,
           ukupno: 0
         };
       }
       poArtiklimaMap[p.artikal_id].broj++;
-      poArtiklimaMap[p.artikal_id].ukupno += p.cijena;
+      poArtiklimaMap[p.artikal_id].kolicina += (p.kolicina || 1);
+      poArtiklimaMap[p.artikal_id].ukupno += (p.ukupno || p.cijena);
     }
     
     res.json({ 
       ukupno, 
-      broj_prodaja, 
+      broj_prodaja,
+      ukupno_kolicina,
+      kes,
+      kartica,
       po_artiklima: Object.values(poArtiklimaMap) 
     });
   } catch (error) {
@@ -268,62 +294,74 @@ app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
   }
 });
 
-// Dohvati statistiku za mjesec
+// Mjesečna statistika - limited users vide samo svoje
 app.get('/api/statistika/mjesec/:godina/:mjesec', requireAuth, async (req, res) => {
   const { godina, mjesec } = req.params;
   const pattern = `${godina}-${mjesec.padStart(2, '0')}`;
   
   try {
-    const prodaje = await db.collection('prodaje')
-      .find({ datum: { $regex: `^${pattern}` } })
-      .toArray();
+    let query = { datum: { $regex: `^${pattern}` } };
+    if (req.user.role === 'limited') {
+      query.korisnik = req.user.username;
+    }
     
-    // Grupiraj po danima
+    const prodaje = await db.collection('prodaje').find(query).toArray();
+    
     const dnevnoMap = {};
     for (const p of prodaje) {
       if (!dnevnoMap[p.datum]) {
-        dnevnoMap[p.datum] = { datum: p.datum, ukupno: 0, broj_prodaja: 0 };
+        dnevnoMap[p.datum] = { datum: p.datum, ukupno: 0, broj_prodaja: 0, kolicina: 0 };
       }
-      dnevnoMap[p.datum].ukupno += p.cijena;
+      dnevnoMap[p.datum].ukupno += (p.ukupno || p.cijena);
       dnevnoMap[p.datum].broj_prodaja++;
+      dnevnoMap[p.datum].kolicina += (p.kolicina || 1);
     }
     
     const dnevno = Object.values(dnevnoMap).sort((a, b) => a.datum.localeCompare(b.datum));
-    const ukupno = prodaje.reduce((sum, p) => sum + p.cijena, 0);
+    const ukupno = prodaje.reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const kes = prodaje.filter(p => p.nacin_placanja !== 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const kartica = prodaje.filter(p => p.nacin_placanja === 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
     
     res.json({ 
       dnevno, 
       ukupno, 
-      broj_prodaja: prodaje.length 
+      broj_prodaja: prodaje.length,
+      kes,
+      kartica
     });
   } catch (error) {
     res.status(500).json({ error: 'Greška pri dohvaćanju statistike' });
   }
 });
 
-// Obriši prodaju
 app.delete('/api/prodaje/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   
   try {
-    await db.collection('prodaje').deleteOne({ _id: new ObjectId(id) });
+    // Limited users mogu brisati samo svoje
+    let query = { _id: new ObjectId(id) };
+    if (req.user.role === 'limited') {
+      query.korisnik = req.user.username;
+    }
+    
+    const result = await db.collection('prodaje').deleteOne(query);
+    if (result.deletedCount === 0) {
+      return res.status(403).json({ error: 'Nemate dozvolu za brisanje' });
+    }
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Greška pri brisanju' });
   }
 });
 
-// Catch-all za SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server (za lokalni razvoj)
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🏪 Radnja Tracker pokrenut na http://localhost:${PORT}`);
   });
 }
 
-// Export za Vercel
 module.exports = app;

@@ -2,7 +2,7 @@
 <html lang="bs">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#1a1a2e">
   <title>Radnja Tracker</title>
@@ -48,12 +48,12 @@
       </header>
 
       <!-- Navigation Tabs -->
-      <nav class="tabs">
+      <nav class="tabs" id="tabsNav">
         <button class="tab active" data-tab="prodaja">
           <span class="tab-icon">💰</span>
           <span>Prodaja</span>
         </button>
-        <button class="tab" data-tab="analitika">
+        <button class="tab" data-tab="analitika" id="analitikaTabBtn">
           <span class="tab-icon">📊</span>
           <span>Analitika</span>
         </button>
@@ -65,7 +65,10 @@
         <div class="promet-kartica">
           <div class="promet-label">Današnji promet</div>
           <div class="promet-iznos" id="dnevniPromet">0,00 KM</div>
-          <div class="promet-broj" id="brojProdaja">0 prodaja</div>
+          <div class="promet-detalji">
+            <span class="promet-broj" id="brojProdaja">0 prodaja</span>
+            <span class="promet-placanje" id="prometPlacanje"></span>
+          </div>
         </div>
 
         <!-- Odabir artikla -->
@@ -78,7 +81,19 @@
 
         <!-- Unos cijene -->
         <section class="section cijena-section" id="cijenaSection" style="display: none;">
-          <h2 class="section-title">Unesi cijenu za <span id="odabraniArtikal"></span></h2>
+          <h2 class="section-title">Unesi detalje za <span id="odabraniArtikal"></span></h2>
+          
+          <!-- Količina -->
+          <div class="kolicina-row">
+            <label>Količina:</label>
+            <div class="kolicina-controls">
+              <button class="kolicina-btn" id="kolicinaMin">−</button>
+              <span class="kolicina-display" id="kolicinaDisplay">1</span>
+              <button class="kolicina-btn" id="kolicinaPlus">+</button>
+            </div>
+          </div>
+          
+          <!-- Cijena -->
           <div class="cijena-input-wrapper">
             <input type="number" id="cijenaInput" class="cijena-input" placeholder="0" step="1" min="0" inputmode="numeric">
             <span class="valuta">KM</span>
@@ -86,6 +101,22 @@
           <div class="brzi-iznosi" id="brziIznosi">
             <!-- Shortcuti se učitavaju dinamički -->
           </div>
+          
+          <!-- Način plaćanja -->
+          <div class="placanje-row">
+            <button class="placanje-btn active" data-placanje="kes" id="placanjeKes">
+              💵 Keš
+            </button>
+            <button class="placanje-btn" data-placanje="kartica" id="placanjeKartica">
+              💳 Kartica
+            </button>
+          </div>
+          
+          <!-- Ukupno preview -->
+          <div class="ukupno-preview" id="ukupnoPreview">
+            Ukupno: <strong>0,00 KM</strong>
+          </div>
+          
           <button class="btn-spremi" id="btnSpremi">
             <span>✓</span> Spremi prodaju
           </button>
@@ -113,7 +144,10 @@
         <div class="promet-kartica mjesecni">
           <div class="promet-label">Mjesečni promet</div>
           <div class="promet-iznos" id="mjesecniPromet">0,00 KM</div>
-          <div class="promet-broj" id="mjesecniBroj">0 prodaja</div>
+          <div class="promet-detalji">
+            <span class="promet-broj" id="mjesecniBroj">0 prodaja</span>
+            <span class="promet-placanje" id="mjesecniPlacanje"></span>
+          </div>
         </div>
 
         <!-- Kalendar -->
@@ -143,6 +177,19 @@
 
     <!-- Toast notifikacija -->
     <div class="toast" id="toast"></div>
+    
+    <!-- Delete confirmation modal -->
+    <div class="modal-overlay" id="deleteModal" style="display: none;">
+      <div class="modal">
+        <div class="modal-icon">🗑️</div>
+        <h3>Obriši prodaju?</h3>
+        <p id="deleteModalText">Jeste li sigurni?</p>
+        <div class="modal-buttons">
+          <button class="modal-btn cancel" id="deleteCancel">Odustani</button>
+          <button class="modal-btn confirm" id="deleteConfirm">Obriši</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

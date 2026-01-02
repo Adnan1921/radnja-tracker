@@ -5,6 +5,11 @@ let trenutniMjesec = new Date().getMonth();
 let trenutnaGodina = new Date().getFullYear();
 let odabraniDatum = null;
 let authToken = localStorage.getItem('authToken');
+let currentUser = null;
+let userRole = 'limited';
+let kolicina = 1;
+let nacinPlacanja = 'kes';
+let deleteTargetId = null;
 
 // Elementi
 const loginScreen = document.getElementById('loginScreen');
@@ -13,6 +18,7 @@ const loginForm = document.getElementById('loginForm');
 const loginError = document.getElementById('loginError');
 const userBadge = document.getElementById('userBadge');
 const btnLogout = document.getElementById('btnLogout');
+const analitikaTabBtn = document.getElementById('analitikaTabBtn');
 
 const artikliGrid = document.getElementById('artikliGrid');
 const cijenaSection = document.getElementById('cijenaSection');
@@ -23,7 +29,24 @@ const btnSpremi = document.getElementById('btnSpremi');
 const prodajeLista = document.getElementById('prodajeLista');
 const dnevniPromet = document.getElementById('dnevniPromet');
 const brojProdaja = document.getElementById('brojProdaja');
+const prometPlacanje = document.getElementById('prometPlacanje');
 const toast = document.getElementById('toast');
+const ukupnoPreview = document.getElementById('ukupnoPreview');
+
+// Količina
+const kolicinaDisplay = document.getElementById('kolicinaDisplay');
+const kolicinaMin = document.getElementById('kolicinaMin');
+const kolicinaPlus = document.getElementById('kolicinaPlus');
+
+// Plaćanje
+const placanjeKes = document.getElementById('placanjeKes');
+const placanjeKartica = document.getElementById('placanjeKartica');
+
+// Modal
+const deleteModal = document.getElementById('deleteModal');
+const deleteModalText = document.getElementById('deleteModalText');
+const deleteCancel = document.getElementById('deleteCancel');
+const deleteConfirm = document.getElementById('deleteConfirm');
 
 // Tab elementi
 const tabs = document.querySelectorAll('.tab');
@@ -38,6 +61,7 @@ const nextMonth = document.getElementById('nextMonth');
 const danDetalji = document.getElementById('danDetalji');
 const mjesecniPromet = document.getElementById('mjesecniPromet');
 const mjesecniBroj = document.getElementById('mjesecniBroj');
+const mjesecniPlacanje = document.getElementById('mjesecniPlacanje');
 
 // Normalni nazivi mjeseci
 const mjeseci = [
@@ -68,6 +92,12 @@ const showToast = (poruka) => {
   setTimeout(() => toast.classList.remove('show'), 3000);
 };
 
+const updateUkupnoPreview = () => {
+  const cijena = parseFloat(cijenaInput.value) || 0;
+  const ukupno = cijena * kolicina;
+  ukupnoPreview.innerHTML = `Ukupno: <strong>${formatCijena(ukupno)}</strong>`;
+};
+
 // API pozivi s token autentifikacijom
 const api = {
   async fetch(url, options = {}) {
@@ -77,7 +107,6 @@ const api = {
     }
     const res = await fetch(url, { ...options, headers });
     if (res.status === 401) {
-      // Token nevažeći, odjavi korisnika
       authToken = null;
       localStorage.removeItem('authToken');
       showLogin();
@@ -111,10 +140,10 @@ const api = {
     return res.json();
   },
   
-  async dodajProdaju(artikal_id, cijena) {
+  async dodajProdaju(artikal_id, cijena, kolicina, nacin_placanja) {
     const res = await this.fetch('/api/prodaje', {
       method: 'POST',
-      body: JSON.stringify({ artikal_id, cijena })
+      body: JSON.stringify({ artikal_id, cijena, kolicina, nacin_placanja })
     });
     return res.json();
   },
@@ -154,10 +183,9 @@ loginForm.addEventListener('submit', async (e) => {
     if (result.error) {
       loginError.textContent = result.error;
     } else {
-      // Spremi token
       authToken = result.token;
       localStorage.setItem('authToken', result.token);
-      showApp(result.username);
+      showApp(result.username, result.role);
     }
   } catch (error) {
     loginError.textContent = 'Greška pri povezivanju';
@@ -174,17 +202,28 @@ const showLogin = () => {
   mainApp.style.display = 'none';
   document.getElementById('username').value = '';
   document.getElementById('password').value = '';
+  currentUser = null;
+  userRole = 'limited';
 };
 
-const showApp = async (username) => {
+const showApp = async (username, role = 'limited') => {
   loginScreen.style.display = 'none';
   mainApp.style.display = 'block';
-  userBadge.textContent = username;
+  currentUser = username;
+  userRole = role;
   
-  // Postavi današnji datum
+  userBadge.textContent = username;
+  if (role === 'limited') {
+    userBadge.classList.add('limited');
+    // Sakrij analitiku za limited usere
+    analitikaTabBtn.style.display = 'none';
+  } else {
+    userBadge.classList.remove('limited');
+    analitikaTabBtn.style.display = 'flex';
+  }
+  
   document.getElementById('trenutniDatum').textContent = formatDatum(danas());
   
-  // Učitaj artikle
   try {
     artikli = await api.getArtikli();
     renderArtikli();
@@ -204,7 +243,6 @@ const renderArtikli = () => {
     </button>
   `).join('');
   
-  // Event listeneri
   document.querySelectorAll('.artikal-btn').forEach(btn => {
     btn.addEventListener('click', () => selectArtikal(parseInt(btn.dataset.id)));
   });
@@ -218,18 +256,23 @@ const selectArtikal = (id) => {
   odabraniArtikalSpan.innerHTML = `${artikal.ikona} ${artikal.naziv}`;
   cijenaSection.style.display = 'block';
   cijenaInput.value = '';
+  kolicina = 1;
+  kolicinaDisplay.textContent = kolicina;
+  nacinPlacanja = 'kes';
+  placanjeKes.classList.add('active');
+  placanjeKartica.classList.remove('active');
+  updateUkupnoPreview();
   
-  // Generiraj shortcute za ovaj artikal
   if (artikal.shortcuti && artikal.shortcuti.length > 0) {
     brziIznosi.innerHTML = artikal.shortcuti.map(iznos => 
       `<button class="brzi-iznos" data-iznos="${iznos}">${iznos} KM</button>`
     ).join('');
     brziIznosi.style.display = 'flex';
     
-    // Dodaj event listenere
     brziIznosi.querySelectorAll('.brzi-iznos').forEach(btn => {
       btn.addEventListener('click', () => {
         cijenaInput.value = btn.dataset.iznos;
+        updateUkupnoPreview();
         cijenaInput.focus();
       });
     });
@@ -240,7 +283,6 @@ const selectArtikal = (id) => {
   cijenaInput.focus();
   renderArtikli();
   
-  // Scroll do cijena sekcije
   cijenaSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
@@ -251,6 +293,12 @@ const renderProdaje = async () => {
     
     dnevniPromet.textContent = formatCijena(statistika.ukupno);
     brojProdaja.textContent = `${statistika.broj_prodaja} prodaj${statistika.broj_prodaja === 1 ? 'a' : 'e'}`;
+    
+    if (statistika.kes > 0 || statistika.kartica > 0) {
+      prometPlacanje.innerHTML = `💵 ${formatCijena(statistika.kes)} | 💳 ${formatCijena(statistika.kartica)}`;
+    } else {
+      prometPlacanje.innerHTML = '';
+    }
     
     if (prodaje.length === 0) {
       prodajeLista.innerHTML = `
@@ -266,21 +314,26 @@ const renderProdaje = async () => {
       <div class="prodaja-item" data-id="${p._id}">
         <span class="prodaja-ikona">${p.artikal_ikona}</span>
         <div class="prodaja-info">
-          <div class="prodaja-naziv">${p.artikal_naziv}</div>
+          <div class="prodaja-naziv">
+            ${p.artikal_naziv}
+            ${(p.kolicina || 1) > 1 ? `<span class="prodaja-kolicina">${p.kolicina}×</span>` : ''}
+            <span class="prodaja-placanje-tag ${p.nacin_placanja || 'kes'}">${p.nacin_placanja === 'kartica' ? '💳' : '💵'}</span>
+          </div>
           <div class="prodaja-meta">${p.vrijeme} • ${p.korisnik}</div>
         </div>
-        <div class="prodaja-cijena">${formatCijena(p.cijena)}</div>
+        <div class="prodaja-cijena">${formatCijena(p.ukupno || p.cijena)}</div>
         <button class="prodaja-delete" title="Obriši">×</button>
       </div>
     `).join('');
     
-    // Delete event listeneri
     document.querySelectorAll('.prodaja-delete').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.target.closest('.prodaja-item').dataset.id;
-        await api.obrisiProdaju(id);
-        showToast('Prodaja obrisana');
-        renderProdaje();
+      btn.addEventListener('click', (e) => {
+        const item = e.target.closest('.prodaja-item');
+        const id = item.dataset.id;
+        const naziv = item.querySelector('.prodaja-naziv').textContent.trim();
+        const cijena = item.querySelector('.prodaja-cijena').textContent;
+        
+        showDeleteModal(id, `${naziv} - ${cijena}`);
       });
     });
   } catch (error) {
@@ -288,36 +341,99 @@ const renderProdaje = async () => {
   }
 };
 
+// ============ DELETE MODAL ============
+
+const showDeleteModal = (id, text) => {
+  deleteTargetId = id;
+  deleteModalText.textContent = text;
+  deleteModal.style.display = 'flex';
+};
+
+const hideDeleteModal = () => {
+  deleteModal.style.display = 'none';
+  deleteTargetId = null;
+};
+
+deleteCancel.addEventListener('click', hideDeleteModal);
+
+deleteConfirm.addEventListener('click', async () => {
+  if (deleteTargetId) {
+    await api.obrisiProdaju(deleteTargetId);
+    showToast('Prodaja obrisana');
+    renderProdaje();
+  }
+  hideDeleteModal();
+});
+
+deleteModal.addEventListener('click', (e) => {
+  if (e.target === deleteModal) {
+    hideDeleteModal();
+  }
+});
+
+// ============ KOLIČINA ============
+
+kolicinaMin.addEventListener('click', () => {
+  if (kolicina > 1) {
+    kolicina--;
+    kolicinaDisplay.textContent = kolicina;
+    updateUkupnoPreview();
+  }
+});
+
+kolicinaPlus.addEventListener('click', () => {
+  kolicina++;
+  kolicinaDisplay.textContent = kolicina;
+  updateUkupnoPreview();
+});
+
+cijenaInput.addEventListener('input', updateUkupnoPreview);
+
+// ============ NAČIN PLAĆANJA ============
+
+placanjeKes.addEventListener('click', () => {
+  nacinPlacanja = 'kes';
+  placanjeKes.classList.add('active');
+  placanjeKartica.classList.remove('active');
+});
+
+placanjeKartica.addEventListener('click', () => {
+  nacinPlacanja = 'kartica';
+  placanjeKartica.classList.add('active');
+  placanjeKes.classList.remove('active');
+});
+
 // ============ KALENDAR ============
 
 const renderKalendar = async () => {
   mjesecGodina.textContent = `${mjeseci[trenutniMjesec]} ${trenutnaGodina}`;
   
   try {
-    // Dohvati statistiku za mjesec
     const statistika = await api.getStatistikaMjesec(trenutnaGodina, String(trenutniMjesec + 1));
     
     mjesecniPromet.textContent = formatCijena(statistika.ukupno);
     mjesecniBroj.textContent = `${statistika.broj_prodaja} prodaj${statistika.broj_prodaja === 1 ? 'a' : 'e'}`;
     
-    // Dani s prodajama
+    if (statistika.kes > 0 || statistika.kartica > 0) {
+      mjesecniPlacanje.innerHTML = `💵 ${formatCijena(statistika.kes)} | 💳 ${formatCijena(statistika.kartica)}`;
+    } else {
+      mjesecniPlacanje.innerHTML = '';
+    }
+    
     const daniSProdajama = new Set(statistika.dnevno.map(d => d.datum));
     
-    // Generiraj dane
     const prviDan = new Date(trenutnaGodina, trenutniMjesec, 1);
     const zadnjiDan = new Date(trenutnaGodina, trenutniMjesec + 1, 0);
-    const danPrvi = prviDan.getDay() === 0 ? 7 : prviDan.getDay(); // Ponedjeljak = 1
+    const danPrvi = prviDan.getDay() === 0 ? 7 : prviDan.getDay();
     const brojDana = zadnjiDan.getDate();
     const danasDatum = danas();
     
     let html = '';
     
-    // Prazni dani prije
     for (let i = 1; i < danPrvi; i++) {
       html += '<button class="kalendar-dan prazan"></button>';
     }
     
-    // Dani mjeseca
     for (let dan = 1; dan <= brojDana; dan++) {
       const datum = `${trenutnaGodina}-${String(trenutniMjesec + 1).padStart(2, '0')}-${String(dan).padStart(2, '0')}`;
       const jeDanas = datum === danasDatum;
@@ -336,7 +452,6 @@ const renderKalendar = async () => {
     
     kalendarDani.innerHTML = html;
     
-    // Event listeneri
     document.querySelectorAll('.kalendar-dan:not(.prazan):not(.buducnost)').forEach(btn => {
       btn.addEventListener('click', () => selectDan(btn.dataset.datum));
     });
@@ -356,7 +471,6 @@ const selectDan = async (datum) => {
     danDetalji.style.display = 'block';
     document.getElementById('danNaslov').textContent = formatDatum(datum);
     
-    // Statistika po artiklima
     let statistikaHtml = '';
     if (statistika.po_artiklima.length === 0) {
       statistikaHtml = '<div class="prazno-stanje"><div class="prazno-ikona">📭</div><div>Nema prodaja ovaj dan</div></div>';
@@ -365,7 +479,7 @@ const selectDan = async (datum) => {
         <div class="dan-stat-item">
           <span class="dan-stat-ikona">${a.ikona}</span>
           <div class="dan-stat-info">
-            <div class="dan-stat-naziv">${a.naziv} (${a.broj}×)</div>
+            <div class="dan-stat-naziv">${a.naziv} (${a.kolicina || a.broj}×)</div>
             <div class="dan-stat-vrijednost">${formatCijena(a.ukupno)}</div>
           </div>
         </div>
@@ -380,10 +494,28 @@ const selectDan = async (datum) => {
           </div>
         </div>
       `;
+      
+      if (statistika.kes > 0 || statistika.kartica > 0) {
+        statistikaHtml += `
+          <div class="dan-stat-item">
+            <span class="dan-stat-ikona">💵</span>
+            <div class="dan-stat-info">
+              <div class="dan-stat-naziv">Keš</div>
+              <div class="dan-stat-vrijednost">${formatCijena(statistika.kes)}</div>
+            </div>
+          </div>
+          <div class="dan-stat-item">
+            <span class="dan-stat-ikona">💳</span>
+            <div class="dan-stat-info">
+              <div class="dan-stat-naziv">Kartica</div>
+              <div class="dan-stat-vrijednost">${formatCijena(statistika.kartica)}</div>
+            </div>
+          </div>
+        `;
+      }
     }
     document.getElementById('danStatistika').innerHTML = statistikaHtml;
     
-    // Lista prodaja
     if (prodaje.length > 0) {
       document.getElementById('danProdaje').innerHTML = `
         <h4>Sve prodaje</h4>
@@ -391,10 +523,14 @@ const selectDan = async (datum) => {
           <div class="prodaja-item">
             <span class="prodaja-ikona">${p.artikal_ikona}</span>
             <div class="prodaja-info">
-              <div class="prodaja-naziv">${p.artikal_naziv}</div>
+              <div class="prodaja-naziv">
+                ${p.artikal_naziv}
+                ${(p.kolicina || 1) > 1 ? `<span class="prodaja-kolicina">${p.kolicina}×</span>` : ''}
+                <span class="prodaja-placanje-tag ${p.nacin_placanja || 'kes'}">${p.nacin_placanja === 'kartica' ? '💳' : '💵'}</span>
+              </div>
               <div class="prodaja-meta">${p.vrijeme} • ${p.korisnik}</div>
             </div>
-            <div class="prodaja-cijena">${formatCijena(p.cijena)}</div>
+            <div class="prodaja-cijena">${formatCijena(p.ukupno || p.cijena)}</div>
           </div>
         `).join('')}
       `;
@@ -410,9 +546,12 @@ const selectDan = async (datum) => {
 
 // ============ EVENT LISTENERI ============
 
-// Tab navigacija
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'analitika' && userRole === 'limited') {
+      return; // Limited useri nemaju pristup
+    }
+    
     tabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     
@@ -428,7 +567,6 @@ tabs.forEach(tab => {
   });
 });
 
-// Spremi prodaju
 btnSpremi.addEventListener('click', async () => {
   if (!odabraniArtikalId) {
     showToast('Odaberi artikal');
@@ -442,15 +580,21 @@ btnSpremi.addEventListener('click', async () => {
   }
   
   try {
-    await api.dodajProdaju(odabraniArtikalId, cijena);
+    await api.dodajProdaju(odabraniArtikalId, cijena, kolicina, nacinPlacanja);
     
     const artikal = artikli.find(a => a.id === odabraniArtikalId);
-    showToast(`${artikal.ikona} ${artikal.naziv} - ${formatCijena(cijena)}`);
+    const ukupno = cijena * kolicina;
+    showToast(`${artikal.ikona} ${artikal.naziv} ${kolicina > 1 ? `(${kolicina}×)` : ''} - ${formatCijena(ukupno)}`);
     
     // Reset
     odabraniArtikalId = null;
     cijenaSection.style.display = 'none';
     cijenaInput.value = '';
+    kolicina = 1;
+    kolicinaDisplay.textContent = 1;
+    nacinPlacanja = 'kes';
+    placanjeKes.classList.add('active');
+    placanjeKartica.classList.remove('active');
     renderArtikli();
     renderProdaje();
   } catch (error) {
@@ -458,14 +602,12 @@ btnSpremi.addEventListener('click', async () => {
   }
 });
 
-// Enter za spremanje
 cijenaInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     btnSpremi.click();
   }
 });
 
-// Kalendar navigacija
 prevMonth.addEventListener('click', () => {
   trenutniMjesec--;
   if (trenutniMjesec < 0) {
@@ -481,7 +623,7 @@ nextMonth.addEventListener('click', () => {
   const now = new Date();
   if (trenutnaGodina > now.getFullYear() || 
       (trenutnaGodina === now.getFullYear() && trenutniMjesec >= now.getMonth())) {
-    return; // Ne dopusti budućnost
+    return;
   }
   trenutniMjesec++;
   if (trenutniMjesec > 11) {
@@ -500,7 +642,7 @@ const init = async () => {
     try {
       const auth = await api.checkAuth();
       if (auth.loggedIn) {
-        showApp(auth.username);
+        showApp(auth.username, auth.role);
       } else {
         showLogin();
       }

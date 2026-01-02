@@ -14,6 +14,7 @@
   --accent-glow: rgba(233, 69, 96, 0.3);
   --success: #00d9a5;
   --success-glow: rgba(0, 217, 165, 0.3);
+  --warning: #f39c12;
   --text-primary: #ffffff;
   --text-secondary: #a0a0b2;
   --text-muted: #6b6b80;
@@ -21,9 +22,9 @@
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-html, body {
+/* Viewport fix za mobile keyboard */
+html {
   height: 100%;
-  overflow-x: hidden;
 }
 
 body {
@@ -32,10 +33,14 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
   background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
@@ -45,6 +50,7 @@ body {
 /* ============ LOGIN SCREEN ============ */
 .login-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,6 +154,7 @@ body {
 /* ============ MAIN APP ============ */
 .main-app {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Header */
@@ -185,6 +192,11 @@ body {
   background: var(--bg-elevated);
   padding: 6px 12px;
   border-radius: 16px;
+}
+
+.user-badge.limited {
+  background: var(--warning);
+  color: #000;
 }
 
 .btn-logout {
@@ -287,10 +299,23 @@ body {
   letter-spacing: -0.02em;
 }
 
+.promet-detalji {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
 .promet-broj {
   font-size: 0.85rem;
   opacity: 0.8;
-  margin-top: 4px;
+}
+
+.promet-placanje {
+  font-size: 0.8rem;
+  opacity: 0.75;
 }
 
 /* Sekcije */
@@ -380,6 +405,62 @@ body {
   animation: fadeInUp 0.4s ease;
 }
 
+/* Količina row */
+.kolicina-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+}
+
+.kolicina-row label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kolicina-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.kolicina-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kolicina-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.kolicina-btn:active {
+  transform: scale(0.95);
+}
+
+.kolicina-display {
+  font-size: 1.3rem;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: center;
+}
+
+/* Cijena input */
 .cijena-input-wrapper {
   position: relative;
   margin-bottom: 16px;
@@ -452,6 +533,53 @@ body {
   transform: scale(0.98);
 }
 
+/* Način plaćanja */
+.placanje-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.placanje-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.placanje-btn.active {
+  border-color: var(--success);
+  background: rgba(0, 217, 165, 0.15);
+  color: var(--success);
+}
+
+.placanje-btn:hover:not(.active) {
+  border-color: var(--text-muted);
+}
+
+/* Ukupno preview */
+.ukupno-preview {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: 10px;
+}
+
+.ukupno-preview strong {
+  color: var(--success);
+  font-size: 1.25rem;
+}
+
 /* Spremi button */
 .btn-spremi {
   width: 100%;
@@ -520,6 +648,33 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.prodaja-kolicina {
+  display: inline-block;
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  margin-left: 4px;
+}
+
+.prodaja-placanje-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  margin-left: 4px;
+}
+
+.prodaja-placanje-tag.kes {
+  background: rgba(0, 217, 165, 0.2);
+  color: var(--success);
+}
+
+.prodaja-placanje-tag.kartica {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
 }
 
 .prodaja-cijena {
@@ -733,6 +888,98 @@ body {
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 6px;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 28px;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid var(--border);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.modal h3 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+
+.modal p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.modal-btn.cancel {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.modal-btn.cancel:hover {
+  background: var(--bg-secondary);
+}
+
+.modal-btn.confirm {
+  background: var(--accent);
+  color: white;
+}
+
+.modal-btn.confirm:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
 }
 
 /* Toast */
