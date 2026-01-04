@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="app">
@@ -140,18 +141,82 @@
           <button class="kalendar-btn" id="nextMonth">→</button>
         </div>
 
-        <!-- Mjesečna statistika -->
-        <div class="promet-kartica mjesecni">
-          <div class="promet-label">Mjesečni promet</div>
-          <div class="promet-iznos" id="mjesecniPromet">0,00 KM</div>
-          <div class="promet-detalji">
-            <span class="promet-broj" id="mjesecniBroj">0 prodaja</span>
-            <span class="promet-placanje" id="mjesecniPlacanje"></span>
+        <!-- Dashboard kartica -->
+        <div class="analytics-dashboard" id="analyticsDashboard">
+          <!-- Glavna metrika -->
+          <div class="metric-card hero">
+            <div class="metric-label">Mjesečni promet</div>
+            <div class="metric-value" id="metricUkupno">0,00 KM</div>
+            <div class="metric-comparison" id="metricUsporedba"></div>
+          </div>
+          
+          <!-- Grid metrika -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon">📈</div>
+              <div class="metric-info">
+                <div class="metric-value small" id="metricProsjek">0 KM</div>
+                <div class="metric-label">Prosjek/dan</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon">🏆</div>
+              <div class="metric-info">
+                <div class="metric-value small" id="metricNajbolji">-</div>
+                <div class="metric-label">Najbolji dan</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon">🛒</div>
+              <div class="metric-info">
+                <div class="metric-value small" id="metricBroj">0</div>
+                <div class="metric-label">Prodaja</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon">💵</div>
+              <div class="metric-info">
+                <div class="metric-value small" id="metricKes">0%</div>
+                <div class="metric-label">Keš</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Linijski graf prometa -->
+          <div class="chart-card">
+            <h3 class="chart-title">📈 Promet kroz mjesec</h3>
+            <div class="chart-container">
+              <canvas id="prometChart"></canvas>
+            </div>
+          </div>
+          
+          <!-- Top artikli pie chart -->
+          <div class="chart-card">
+            <h3 class="chart-title">🏆 Top artikli</h3>
+            <div class="chart-container pie">
+              <canvas id="artikliChart"></canvas>
+            </div>
+            <div class="top-artikli-lista" id="topArtikliLista"></div>
+          </div>
+          
+          <!-- Promet po danima bar chart -->
+          <div class="chart-card">
+            <h3 class="chart-title">📅 Promet po danima</h3>
+            <div class="chart-container">
+              <canvas id="daniChart"></canvas>
+            </div>
+          </div>
+          
+          <!-- Trendovi -->
+          <div class="chart-card">
+            <h3 class="chart-title">📊 Trendovi vs prošli mjesec</h3>
+            <div class="trendovi-lista" id="trendoviLista"></div>
           </div>
         </div>
 
         <!-- Kalendar -->
         <div class="kalendar" id="kalendar">
+          <h3 class="chart-title" style="margin-bottom: 12px;">📅 Kalendar prodaja</h3>
           <div class="kalendar-header">
             <div>Pon</div>
             <div>Uto</div>

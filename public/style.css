@@ -1137,3 +1137,251 @@ body {
 .artikli-grid.mini .artikal-naziv {
   font-size: 0.7rem;
 }
+
+/* ============ ANALYTICS DASHBOARD ============ */
+
+.analytics-dashboard {
+  margin-bottom: 24px;
+}
+
+/* Hero metric card */
+.metric-card.hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 16px;
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.3);
+}
+
+.metric-card.hero .metric-label {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.metric-card.hero .metric-value {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.metric-comparison {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.metric-comparison.up {
+  color: #00d9a5;
+}
+
+.metric-comparison.down {
+  color: #ff6b6b;
+}
+
+.metric-comparison .arrow {
+  font-size: 1.1rem;
+}
+
+/* Metrics grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+}
+
+.metric-icon {
+  font-size: 1.8rem;
+}
+
+.metric-info {
+  flex: 1;
+}
+
+.metric-value.small {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Chart cards */
+.chart-card {
+  background: var(--bg-card);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+
+.chart-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.chart-container {
+  position: relative;
+  height: 200px;
+}
+
+.chart-container.pie {
+  height: 180px;
+}
+
+/* Top artikli lista */
+.top-artikli-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.top-artikal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: 10px;
+}
+
+.top-artikal-rank {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 24px;
+}
+
+.top-artikal-rank.gold { color: #ffd700; }
+.top-artikal-rank.silver { color: #c0c0c0; }
+.top-artikal-rank.bronze { color: #cd7f32; }
+
+.top-artikal-icon {
+  font-size: 1.3rem;
+}
+
+.top-artikal-info {
+  flex: 1;
+}
+
+.top-artikal-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.top-artikal-qty {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.top-artikal-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.top-artikal-percent {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+/* Trendovi lista */
+.trendovi-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+}
+
+.trend-icon {
+  font-size: 1.4rem;
+}
+
+.trend-info {
+  flex: 1;
+}
+
+.trend-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.trend-value {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.trend-change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.trend-change.up {
+  background: rgba(0, 217, 165, 0.15);
+  color: var(--success);
+}
+
+.trend-change.down {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--accent);
+}
+
+.trend-change.stable {
+  background: var(--bg-card);
+  color: var(--text-muted);
+}
+
+.trend-arrow {
+  font-size: 0.8rem;
+}
+
+/* Empty state for analytics */
+.analytics-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.analytics-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}

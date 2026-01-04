@@ -69,9 +69,11 @@ const mjesecGodina = document.getElementById('mjesecGodina');
 const prevMonth = document.getElementById('prevMonth');
 const nextMonth = document.getElementById('nextMonth');
 const danDetalji = document.getElementById('danDetalji');
-const mjesecniPromet = document.getElementById('mjesecniPromet');
-const mjesecniBroj = document.getElementById('mjesecniBroj');
-const mjesecniPlacanje = document.getElementById('mjesecniPlacanje');
+
+// Chart instance references
+let prometChart = null;
+let artikliChart = null;
+let daniChart = null;
 
 // Normalni nazivi mjeseci
 const mjeseci = [
@@ -206,6 +208,11 @@ const api = {
   
   async getStatistikaMjesec(godina, mjesec) {
     const res = await this.fetch(`/api/statistika/mjesec/${godina}/${mjesec}`);
+    return res.json();
+  },
+  
+  async getAnalytics(godina, mjesec) {
+    const res = await this.fetch(`/api/analytics/${godina}/${mjesec}`);
     return res.json();
   },
   
@@ -631,22 +638,282 @@ retroArtikalModal.addEventListener('click', (e) => {
   }
 });
 
+// ============ ANALYTICS ============
+
+const renderAnalytics = async () => {
+  try {
+    const data = await api.getAnalytics(trenutnaGodina, String(trenutniMjesec + 1));
+    
+    // Osnovne metrike
+    document.getElementById('metricUkupno').textContent = formatCijena(data.ukupno);
+    document.getElementById('metricProsjek').textContent = formatCijena(data.prosjekDnevno);
+    document.getElementById('metricBroj').textContent = data.brojProdaja;
+    document.getElementById('metricKes').textContent = `${data.kesPostotak}%`;
+    
+    // Najbolji dan
+    if (data.najboljiDan) {
+      const d = new Date(data.najboljiDan);
+      document.getElementById('metricNajbolji').textContent = `${d.getDate()}. (${formatCijena(data.najboljiIznos)})`;
+    } else {
+      document.getElementById('metricNajbolji').textContent = '-';
+    }
+    
+    // Usporedba s prošlim mjesecom
+    const usporedbaEl = document.getElementById('metricUsporedba');
+    const promjena = data.prosliMjesec.promjenaPostotak;
+    const promjenaIznos = data.prosliMjesec.promjenaIznos;
+    if (promjena !== 0) {
+      const arrow = promjena > 0 ? '↑' : '↓';
+      const klasa = promjena > 0 ? 'up' : 'down';
+      usporedbaEl.innerHTML = `
+        <span class="arrow">${arrow}</span>
+        <span>${Math.abs(promjena)}% (${promjenaIznos > 0 ? '+' : ''}${formatCijena(promjenaIznos)})</span>
+        <span>vs prošli mjesec</span>
+      `;
+      usporedbaEl.className = `metric-comparison ${klasa}`;
+    } else {
+      usporedbaEl.innerHTML = '<span>Isto kao prošli mjesec</span>';
+      usporedbaEl.className = 'metric-comparison';
+    }
+    
+    // Linijski graf prometa
+    renderPrometChart(data.dnevniPromet);
+    
+    // Pie chart artikala
+    renderArtikliChart(data.topArtikli, data.ukupno);
+    
+    // Bar chart dana
+    renderDaniChart(data.prometPoDanima);
+    
+    // Trendovi
+    renderTrendovi(data.trendovi, data.ukupno);
+    
+  } catch (error) {
+    console.error('Analytics error:', error);
+  }
+};
+
+const renderPrometChart = (dnevniPromet) => {
+  const ctx = document.getElementById('prometChart').getContext('2d');
+  
+  // Destroy existing chart
+  if (prometChart) {
+    prometChart.destroy();
+  }
+  
+  const labels = dnevniPromet.map(d => {
+    const date = new Date(d.datum);
+    return date.getDate();
+  });
+  
+  const values = dnevniPromet.map(d => d.iznos);
+  
+  prometChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Promet',
+        data: values,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#667eea',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          displayColors: false,
+          callbacks: {
+            label: (ctx) => formatCijena(ctx.raw)
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#6b6b80' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { 
+            color: '#6b6b80',
+            callback: (value) => value + ' KM'
+          }
+        }
+      }
+    }
+  });
+};
+
+const renderArtikliChart = (topArtikli, ukupno) => {
+  const ctx = document.getElementById('artikliChart').getContext('2d');
+  
+  if (artikliChart) {
+    artikliChart.destroy();
+  }
+  
+  const colors = ['#667eea', '#764ba2', '#00d9a5', '#e94560', '#f39c12', '#3498db'];
+  
+  artikliChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: topArtikli.map(a => a.naziv),
+      datasets: [{
+        data: topArtikli.map(a => a.ukupno),
+        backgroundColor: colors.slice(0, topArtikli.length),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          padding: 12,
+          callbacks: {
+            label: (ctx) => {
+              const value = ctx.raw;
+              const percent = ukupno > 0 ? Math.round((value / ukupno) * 100) : 0;
+              return `${formatCijena(value)} (${percent}%)`;
+            }
+          }
+        }
+      },
+      cutout: '65%'
+    }
+  });
+  
+  // Top artikli lista
+  const lista = document.getElementById('topArtikliLista');
+  lista.innerHTML = topArtikli.slice(0, 5).map((a, i) => {
+    const percent = ukupno > 0 ? Math.round((a.ukupno / ukupno) * 100) : 0;
+    const rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
+    return `
+      <div class="top-artikal-item">
+        <span class="top-artikal-rank ${rankClass}">#${i + 1}</span>
+        <span class="top-artikal-icon">${a.ikona}</span>
+        <div class="top-artikal-info">
+          <div class="top-artikal-name">${a.naziv}</div>
+          <div class="top-artikal-qty">${a.kolicina} kom</div>
+        </div>
+        <div>
+          <span class="top-artikal-value">${formatCijena(a.ukupno)}</span>
+          <span class="top-artikal-percent">${percent}%</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+const renderDaniChart = (prometPoDanima) => {
+  const ctx = document.getElementById('daniChart').getContext('2d');
+  
+  if (daniChart) {
+    daniChart.destroy();
+  }
+  
+  const maxPromet = Math.max(...prometPoDanima.map(d => d.promet));
+  
+  daniChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: prometPoDanima.map(d => d.dan),
+      datasets: [{
+        label: 'Promet',
+        data: prometPoDanima.map(d => d.promet),
+        backgroundColor: prometPoDanima.map(d => 
+          d.promet === maxPromet ? '#00d9a5' : '#667eea'
+        ),
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          padding: 12,
+          callbacks: {
+            label: (ctx) => formatCijena(ctx.raw)
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#6b6b80' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { 
+            color: '#6b6b80',
+            callback: (value) => value + ' KM'
+          }
+        }
+      }
+    }
+  });
+};
+
+const renderTrendovi = (trendovi, ukupno) => {
+  const lista = document.getElementById('trendoviLista');
+  
+  if (trendovi.length === 0) {
+    lista.innerHTML = '<div class="analytics-empty"><div class="analytics-empty-icon">📊</div><div>Nema podataka za usporedbu</div></div>';
+    return;
+  }
+  
+  lista.innerHTML = trendovi.map(t => {
+    const trendClass = t.trend === 'up' ? 'up' : (t.trend === 'down' ? 'down' : 'stable');
+    const arrow = t.trend === 'up' ? '↑' : (t.trend === 'down' ? '↓' : '→');
+    const percent = ukupno > 0 ? Math.round((t.ukupno / ukupno) * 100) : 0;
+    
+    return `
+      <div class="trend-item">
+        <span class="trend-icon">${t.ikona}</span>
+        <div class="trend-info">
+          <div class="trend-name">${t.naziv}</div>
+          <div class="trend-value">${formatCijena(t.ukupno)} (${percent}% ukupnog)</div>
+        </div>
+        <div class="trend-change ${trendClass}">
+          <span class="trend-arrow">${arrow}</span>
+          <span>${Math.abs(t.promjena)}%</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
 // ============ KALENDAR ============
 
 const renderKalendar = async () => {
   mjesecGodina.textContent = `${mjeseci[trenutniMjesec]} ${trenutnaGodina}`;
   
+  // Renderaj analytics
+  await renderAnalytics();
+  
   try {
     const statistika = await api.getStatistikaMjesec(trenutnaGodina, String(trenutniMjesec + 1));
-    
-    mjesecniPromet.textContent = formatCijena(statistika.ukupno);
-    mjesecniBroj.textContent = `${statistika.broj_prodaja} prodaj${statistika.broj_prodaja === 1 ? 'a' : 'e'}`;
-    
-    if (statistika.kes > 0 || statistika.kartica > 0) {
-      mjesecniPlacanje.innerHTML = `💵 ${formatCijena(statistika.kes)} | 💳 ${formatCijena(statistika.kartica)}`;
-    } else {
-      mjesecniPlacanje.innerHTML = '';
-    }
     
     const daniSProdajama = new Set(statistika.dnevno.map(d => d.datum));
     

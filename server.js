@@ -528,6 +528,174 @@ app.get('/api/statistika/mjesec/:godina/:mjesec', requireAuth, async (req, res) 
   }
 });
 
+// Napredna statistika za dashboard
+app.get('/api/analytics/:godina/:mjesec', requireAuth, async (req, res) => {
+  const { godina, mjesec } = req.params;
+  
+  const godinaNum = parseInt(godina);
+  const mjesecNum = parseInt(mjesec);
+  if (isNaN(godinaNum) || godinaNum < 2020 || godinaNum > 2100) {
+    return res.status(400).json({ error: 'Nevažeća godina' });
+  }
+  if (isNaN(mjesecNum) || mjesecNum < 1 || mjesecNum > 12) {
+    return res.status(400).json({ error: 'Nevažeći mjesec' });
+  }
+  
+  const pattern = `${godina}-${String(mjesecNum).padStart(2, '0')}`;
+  
+  // Prošli mjesec za usporedbu
+  let prosliMjesec = mjesecNum - 1;
+  let proslaGodina = godinaNum;
+  if (prosliMjesec < 1) {
+    prosliMjesec = 12;
+    proslaGodina--;
+  }
+  const prosliPattern = `${proslaGodina}-${String(prosliMjesec).padStart(2, '0')}`;
+  
+  try {
+    let query = { datum: { $regex: `^${pattern}` } };
+    let prosliQuery = { datum: { $regex: `^${prosliPattern}` } };
+    
+    if (req.user.role === 'limited') {
+      query.korisnik = req.user.username;
+      prosliQuery.korisnik = req.user.username;
+    }
+    
+    const prodaje = await db.collection('prodaje').find(query).toArray();
+    const prosle = await db.collection('prodaje').find(prosliQuery).toArray();
+    
+    // Osnovne metrike
+    const ukupno = prodaje.reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const prosliUkupno = prosle.reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const brojProdaja = prodaje.length;
+    const prosliBrojProdaja = prosle.length;
+    
+    // Broj dana s prodajama
+    const daniSProdajama = new Set(prodaje.map(p => p.datum)).size;
+    const prosjekDnevno = daniSProdajama > 0 ? ukupno / daniSProdajama : 0;
+    
+    // Keš vs kartica
+    const kes = prodaje.filter(p => p.nacin_placanja !== 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const kartica = prodaje.filter(p => p.nacin_placanja === 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
+    const kesPostotak = ukupno > 0 ? Math.round((kes / ukupno) * 100) : 0;
+    
+    // Dnevni promet za graf
+    const dnevnoMap = {};
+    for (const p of prodaje) {
+      if (!dnevnoMap[p.datum]) {
+        dnevnoMap[p.datum] = 0;
+      }
+      dnevnoMap[p.datum] += (p.ukupno || p.cijena);
+    }
+    const dnevniPromet = Object.entries(dnevnoMap)
+      .map(([datum, iznos]) => ({ datum, iznos }))
+      .sort((a, b) => a.datum.localeCompare(b.datum));
+    
+    // Najbolji dan
+    let najboljiDan = null;
+    let najboljiIznos = 0;
+    for (const [datum, iznos] of Object.entries(dnevnoMap)) {
+      if (iznos > najboljiIznos) {
+        najboljiIznos = iznos;
+        najboljiDan = datum;
+      }
+    }
+    
+    // Top artikli
+    const artikliMap = {};
+    for (const p of prodaje) {
+      if (!artikliMap[p.artikal_id]) {
+        artikliMap[p.artikal_id] = {
+          id: p.artikal_id,
+          naziv: p.artikal_naziv,
+          ikona: p.artikal_ikona,
+          ukupno: 0,
+          kolicina: 0
+        };
+      }
+      artikliMap[p.artikal_id].ukupno += (p.ukupno || p.cijena);
+      artikliMap[p.artikal_id].kolicina += (p.kolicina || 1);
+    }
+    const topArtikli = Object.values(artikliMap)
+      .sort((a, b) => b.ukupno - a.ukupno);
+    
+    // Promet po danima u tjednu
+    const daniUTjednu = [0, 0, 0, 0, 0, 0, 0]; // Ned, Pon, Uto, Sri, Čet, Pet, Sub
+    const daniCount = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of prodaje) {
+      const dan = new Date(p.datum).getDay();
+      daniUTjednu[dan] += (p.ukupno || p.cijena);
+      daniCount[dan]++;
+    }
+    // Prosječan promet po danu u tjednu
+    const prometPoDanima = [
+      { dan: 'Pon', promet: daniUTjednu[1], count: daniCount[1] },
+      { dan: 'Uto', promet: daniUTjednu[2], count: daniCount[2] },
+      { dan: 'Sri', promet: daniUTjednu[3], count: daniCount[3] },
+      { dan: 'Čet', promet: daniUTjednu[4], count: daniCount[4] },
+      { dan: 'Pet', promet: daniUTjednu[5], count: daniCount[5] },
+      { dan: 'Sub', promet: daniUTjednu[6], count: daniCount[6] },
+      { dan: 'Ned', promet: daniUTjednu[0], count: daniCount[0] }
+    ];
+    
+    // Usporedba artikala s prošlim mjesecom
+    const prosliArtikliMap = {};
+    for (const p of prosle) {
+      if (!prosliArtikliMap[p.artikal_id]) {
+        prosliArtikliMap[p.artikal_id] = 0;
+      }
+      prosliArtikliMap[p.artikal_id] += (p.ukupno || p.cijena);
+    }
+    
+    // Trendovi
+    const trendovi = topArtikli.slice(0, 5).map(a => {
+      const prosliIznos = prosliArtikliMap[a.id] || 0;
+      const promjena = prosliIznos > 0 
+        ? Math.round(((a.ukupno - prosliIznos) / prosliIznos) * 100)
+        : (a.ukupno > 0 ? 100 : 0);
+      return {
+        ...a,
+        promjena,
+        trend: promjena > 0 ? 'up' : (promjena < 0 ? 'down' : 'stable')
+      };
+    });
+    
+    res.json({
+      // Osnovne metrike
+      ukupno,
+      brojProdaja,
+      prosjekDnevno,
+      najboljiDan,
+      najboljiIznos,
+      daniSProdajama,
+      
+      // Plaćanje
+      kes,
+      kartica,
+      kesPostotak,
+      
+      // Usporedba s prošlim mjesecom
+      prosliMjesec: {
+        ukupno: prosliUkupno,
+        brojProdaja: prosliBrojProdaja,
+        promjenaPostotak: prosliUkupno > 0 
+          ? Math.round(((ukupno - prosliUkupno) / prosliUkupno) * 100) 
+          : (ukupno > 0 ? 100 : 0),
+        promjenaIznos: ukupno - prosliUkupno
+      },
+      
+      // Grafovi
+      dnevniPromet,
+      topArtikli,
+      prometPoDanima,
+      trendovi
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({ error: 'Greška pri dohvaćanju analitike' });
+  }
+});
+
 app.delete('/api/prodaje/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   
