@@ -283,7 +283,7 @@ app.get('/api/artikli', requireAuth, (req, res) => {
 
 // Dodaj novu prodaju - sa validacijom
 app.post('/api/prodaje', requireAuth, async (req, res) => {
-  const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes', datum: customDatum } = req.body;
+  const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes', datum: clientDatum, vrijeme: clientVrijeme } = req.body;
   
   // Validacija
   const priceValidation = validatePrice(cijena);
@@ -301,7 +301,12 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
     return res.status(400).json({ error: paymentValidation.error });
   }
   
-  const dateValidation = validateDate(customDatum);
+  // Datum je OBAVEZAN od klijenta (timezone-aware)
+  if (!clientDatum) {
+    return res.status(400).json({ error: 'Datum je obavezan' });
+  }
+  
+  const dateValidation = validateDate(clientDatum);
   if (!dateValidation.valid) {
     return res.status(400).json({ error: dateValidation.error });
   }
@@ -312,8 +317,9 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
   }
   
   const now = new Date();
-  const datum = dateValidation.value || now.toISOString().split('T')[0];
-  const vrijeme = dateValidation.value ? 'retroaktivno' : now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
+  const datum = dateValidation.value;
+  // Vrijeme dolazi od klijenta ili je retroaktivno
+  const vrijeme = clientVrijeme || 'retroaktivno';
   
   const ukupnaCijena = priceValidation.value * quantityValidation.value;
   

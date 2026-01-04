@@ -99,7 +99,21 @@ const formatDatumKratki = (datum) => {
   return `${d.getDate()}. ${mjeseci[d.getMonth()].toLowerCase()} ${d.getFullYear()}`;
 };
 
-const danas = () => new Date().toISOString().split('T')[0];
+// Lokalni datum i vrijeme (timezone-aware)
+const danas = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const trenutnoVrijeme = () => {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
 
 const showToast = (poruka) => {
   toast.textContent = poruka;
@@ -155,9 +169,15 @@ const api = {
     return res.json();
   },
   
-  async dodajProdaju(artikal_id, cijena, kolicina, nacin_placanja, datum = null) {
-    const body = { artikal_id, cijena, kolicina, nacin_placanja };
-    if (datum) body.datum = datum;
+  async dodajProdaju(artikal_id, cijena, kolicina, nacin_placanja, datum = null, vrijeme = null) {
+    const body = { 
+      artikal_id, 
+      cijena, 
+      kolicina, 
+      nacin_placanja,
+      datum: datum || danas(),
+      vrijeme: vrijeme || trenutnoVrijeme()
+    };
     
     const res = await this.fetch('/api/prodaje', {
       method: 'POST',
@@ -593,7 +613,8 @@ document.getElementById('retroArtikalConfirm').addEventListener('click', async (
   }
   
   try {
-    await api.dodajProdaju(retroArtikalId, cijena, retroKolicina, retroNacinPlacanja, retroDatum);
+    // Retroaktivni unos - šalje datum ali "retroaktivno" kao vrijeme
+    await api.dodajProdaju(retroArtikalId, cijena, retroKolicina, retroNacinPlacanja, retroDatum, 'retroaktivno');
     const artikal = artikli.find(a => a.id === retroArtikalId);
     showToast(`${artikal.ikona} ${artikal.naziv} dodan`);
     retroArtikalModal.style.display = 'none';
@@ -799,7 +820,8 @@ btnSpremi.addEventListener('click', async () => {
   }
   
   try {
-    await api.dodajProdaju(odabraniArtikalId, cijena, kolicina, nacinPlacanja);
+    // Šalje lokalni datum i vrijeme
+    await api.dodajProdaju(odabraniArtikalId, cijena, kolicina, nacinPlacanja, danas(), trenutnoVrijeme());
     
     const artikal = artikli.find(a => a.id === odabraniArtikalId);
     const ukupno = cijena * kolicina;
