@@ -1036,3 +1036,104 @@ body {
     padding-bottom: calc(100px + env(safe-area-inset-bottom));
   }
 }
+
+/* Retroaktivni unos tipke */
+.retro-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.retro-btn {
+  flex: 1;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--success);
+  background: rgba(0, 217, 165, 0.15);
+  color: var(--success);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.retro-btn:hover {
+  background: var(--success);
+  color: white;
+}
+
+.retro-btn.secondary {
+  border-color: var(--accent);
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--accent);
+}
+
+.retro-btn.secondary:hover {
+  background: var(--accent);
+  color: white;
+}
+
+/* Modal large */
+.modal.modal-large {
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-datum {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-body .form-group {
+  margin-bottom: 16px;
+}
+
+.modal-body .form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+/* Mini artikli grid za modal */
+.artikli-grid.mini {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.artikli-grid.mini .artikal-btn {
+  padding: 12px 8px;
+}
+
+.artikli-grid.mini .artikal-ikona {
+  font-size: 1.5rem;
+}
+
+.artikli-grid.mini .artikal-naziv {
+  font-size: 0.7rem;
+}

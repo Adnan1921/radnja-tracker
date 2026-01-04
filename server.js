@@ -186,12 +186,14 @@ app.get('/api/artikli', requireAuth, (req, res) => {
   res.json(ARTIKLI);
 });
 
-// Dodaj novu prodaju - sada s količinom i načinom plaćanja
+// Dodaj novu prodaju - podržava retroaktivni unos
 app.post('/api/prodaje', requireAuth, async (req, res) => {
-  const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes' } = req.body;
+  const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes', datum: customDatum } = req.body;
   const now = new Date();
-  const datum = now.toISOString().split('T')[0];
-  const vrijeme = now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
+  
+  // Koristi custom datum ako je proslijeđen, inače danas
+  const datum = customDatum || now.toISOString().split('T')[0];
+  const vrijeme = customDatum ? 'retroaktivno' : now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
   
   const artikal = ARTIKLI.find(a => a.id === artikal_id);
   if (!artikal) {
@@ -218,6 +220,42 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
     res.json({ success: true, id: result.insertedId });
   } catch (error) {
     console.error('Prodaja error:', error);
+    res.status(500).json({ error: 'Greška pri spremanju' });
+  }
+});
+
+// Dodaj dnevni promet (brzi unos bez artikala)
+app.post('/api/dnevni-promet', requireAuth, async (req, res) => {
+  const { iznos, nacin_placanja = 'kes', datum } = req.body;
+  const now = new Date();
+  
+  if (!datum) {
+    return res.status(400).json({ error: 'Datum je obavezan' });
+  }
+  
+  if (!iznos || parseFloat(iznos) <= 0) {
+    return res.status(400).json({ error: 'Iznos mora biti veći od 0' });
+  }
+  
+  try {
+    const result = await db.collection('prodaje').insertOne({
+      artikal_id: 0,
+      artikal_naziv: 'Dnevni promet',
+      artikal_ikona: '💰',
+      cijena: parseFloat(iznos),
+      kolicina: 1,
+      ukupno: parseFloat(iznos),
+      nacin_placanja,
+      datum,
+      vrijeme: 'dnevni promet',
+      korisnik: req.user.username,
+      createdAt: now,
+      isDnevniPromet: true
+    });
+    
+    res.json({ success: true, id: result.insertedId });
+  } catch (error) {
+    console.error('Dnevni promet error:', error);
     res.status(500).json({ error: 'Greška pri spremanju' });
   }
 });

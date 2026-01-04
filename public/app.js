@@ -11,6 +11,12 @@ let kolicina = 1;
 let nacinPlacanja = 'kes';
 let deleteTargetId = null;
 
+// Retro state
+let retroDatum = null;
+let retroArtikalId = null;
+let retroKolicina = 1;
+let retroNacinPlacanja = 'kes';
+
 // Elementi
 const loginScreen = document.getElementById('loginScreen');
 const mainApp = document.getElementById('mainApp');
@@ -48,6 +54,10 @@ const deleteModalText = document.getElementById('deleteModalText');
 const deleteCancel = document.getElementById('deleteCancel');
 const deleteConfirm = document.getElementById('deleteConfirm');
 
+// Retro modali
+const retroPrometModal = document.getElementById('retroPrometModal');
+const retroArtikalModal = document.getElementById('retroArtikalModal');
+
 // Tab elementi
 const tabs = document.querySelectorAll('.tab');
 const prodajaTab = document.getElementById('prodaja-tab');
@@ -82,6 +92,11 @@ const formatDatum = (datum) => {
   const d = new Date(datum);
   const dani = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota'];
   return `${dani[d.getDay()]}, ${d.getDate()}. ${mjeseci[d.getMonth()].toLowerCase()}`;
+};
+
+const formatDatumKratki = (datum) => {
+  const d = new Date(datum);
+  return `${d.getDate()}. ${mjeseci[d.getMonth()].toLowerCase()} ${d.getFullYear()}`;
 };
 
 const danas = () => new Date().toISOString().split('T')[0];
@@ -140,10 +155,21 @@ const api = {
     return res.json();
   },
   
-  async dodajProdaju(artikal_id, cijena, kolicina, nacin_placanja) {
+  async dodajProdaju(artikal_id, cijena, kolicina, nacin_placanja, datum = null) {
+    const body = { artikal_id, cijena, kolicina, nacin_placanja };
+    if (datum) body.datum = datum;
+    
     const res = await this.fetch('/api/prodaje', {
       method: 'POST',
-      body: JSON.stringify({ artikal_id, cijena, kolicina, nacin_placanja })
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  
+  async dodajDnevniPromet(iznos, nacin_placanja, datum) {
+    const res = await this.fetch('/api/dnevni-promet', {
+      method: 'POST',
+      body: JSON.stringify({ iznos, nacin_placanja, datum })
     });
     return res.json();
   },
@@ -215,7 +241,6 @@ const showApp = async (username, role = 'limited') => {
   userBadge.textContent = username;
   if (role === 'limited') {
     userBadge.classList.add('limited');
-    // Sakrij analitiku za limited usere
     analitikaTabBtn.style.display = 'none';
   } else {
     userBadge.classList.remove('limited');
@@ -243,7 +268,7 @@ const renderArtikli = () => {
     </button>
   `).join('');
   
-  document.querySelectorAll('.artikal-btn').forEach(btn => {
+  document.querySelectorAll('#artikliGrid .artikal-btn').forEach(btn => {
     btn.addEventListener('click', () => selectArtikal(parseInt(btn.dataset.id)));
   });
 };
@@ -361,6 +386,9 @@ deleteConfirm.addEventListener('click', async () => {
     await api.obrisiProdaju(deleteTargetId);
     showToast('Prodaja obrisana');
     renderProdaje();
+    if (odabraniDatum) {
+      selectDan(odabraniDatum);
+    }
   }
   hideDeleteModal();
 });
@@ -401,6 +429,185 @@ placanjeKartica.addEventListener('click', () => {
   nacinPlacanja = 'kartica';
   placanjeKartica.classList.add('active');
   placanjeKes.classList.remove('active');
+});
+
+// ============ RETROAKTIVNI UNOS - DNEVNI PROMET ============
+
+document.getElementById('btnRetroPromet').addEventListener('click', () => {
+  if (!odabraniDatum) return;
+  retroDatum = odabraniDatum;
+  document.getElementById('retroPrometDatum').textContent = formatDatumKratki(retroDatum);
+  document.getElementById('retroPrometIznos').value = '';
+  document.getElementById('retroPrometKes').classList.add('active');
+  document.getElementById('retroPrometKartica').classList.remove('active');
+  retroNacinPlacanja = 'kes';
+  retroPrometModal.style.display = 'flex';
+});
+
+document.getElementById('retroPrometKes').addEventListener('click', () => {
+  retroNacinPlacanja = 'kes';
+  document.getElementById('retroPrometKes').classList.add('active');
+  document.getElementById('retroPrometKartica').classList.remove('active');
+});
+
+document.getElementById('retroPrometKartica').addEventListener('click', () => {
+  retroNacinPlacanja = 'kartica';
+  document.getElementById('retroPrometKartica').classList.add('active');
+  document.getElementById('retroPrometKes').classList.remove('active');
+});
+
+document.getElementById('retroPrometCancel').addEventListener('click', () => {
+  retroPrometModal.style.display = 'none';
+});
+
+document.getElementById('retroPrometConfirm').addEventListener('click', async () => {
+  const iznos = parseFloat(document.getElementById('retroPrometIznos').value);
+  if (isNaN(iznos) || iznos <= 0) {
+    showToast('Unesi ispravan iznos');
+    return;
+  }
+  
+  try {
+    await api.dodajDnevniPromet(iznos, retroNacinPlacanja, retroDatum);
+    showToast(`💰 Dnevni promet ${formatCijena(iznos)} dodan`);
+    retroPrometModal.style.display = 'none';
+    renderKalendar();
+    selectDan(retroDatum);
+  } catch (error) {
+    showToast('Greška pri spremanju');
+  }
+});
+
+retroPrometModal.addEventListener('click', (e) => {
+  if (e.target === retroPrometModal) {
+    retroPrometModal.style.display = 'none';
+  }
+});
+
+// ============ RETROAKTIVNI UNOS - ARTIKAL ============
+
+const renderRetroArtikli = () => {
+  const grid = document.getElementById('retroArtikliGrid');
+  grid.innerHTML = artikli.map(a => `
+    <button class="artikal-btn ${retroArtikalId === a.id ? 'selected' : ''}" data-id="${a.id}">
+      <span class="artikal-ikona">${a.ikona}</span>
+      <span class="artikal-naziv">${a.naziv}</span>
+    </button>
+  `).join('');
+  
+  grid.querySelectorAll('.artikal-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectRetroArtikal(parseInt(btn.dataset.id)));
+  });
+};
+
+const selectRetroArtikal = (id) => {
+  retroArtikalId = id;
+  renderRetroArtikli();
+  
+  const artikal = artikli.find(a => a.id === id);
+  const brziIznosiRetro = document.getElementById('retroBrziIznosi');
+  
+  if (artikal && artikal.shortcuti && artikal.shortcuti.length > 0) {
+    brziIznosiRetro.innerHTML = artikal.shortcuti.map(iznos => 
+      `<button class="brzi-iznos" data-iznos="${iznos}">${iznos} KM</button>`
+    ).join('');
+    
+    brziIznosiRetro.querySelectorAll('.brzi-iznos').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('retroCijenaInput').value = btn.dataset.iznos;
+        updateRetroUkupnoPreview();
+      });
+    });
+  } else {
+    brziIznosiRetro.innerHTML = '';
+  }
+};
+
+const updateRetroUkupnoPreview = () => {
+  const cijena = parseFloat(document.getElementById('retroCijenaInput').value) || 0;
+  const ukupno = cijena * retroKolicina;
+  document.getElementById('retroUkupnoPreview').innerHTML = `Ukupno: <strong>${formatCijena(ukupno)}</strong>`;
+};
+
+document.getElementById('btnRetroArtikal').addEventListener('click', () => {
+  if (!odabraniDatum) return;
+  retroDatum = odabraniDatum;
+  retroArtikalId = null;
+  retroKolicina = 1;
+  retroNacinPlacanja = 'kes';
+  
+  document.getElementById('retroArtikalDatum').textContent = formatDatumKratki(retroDatum);
+  document.getElementById('retroCijenaInput').value = '';
+  document.getElementById('retroKolicinaDisplay').textContent = 1;
+  document.getElementById('retroArtikalKes').classList.add('active');
+  document.getElementById('retroArtikalKartica').classList.remove('active');
+  document.getElementById('retroBrziIznosi').innerHTML = '';
+  updateRetroUkupnoPreview();
+  
+  renderRetroArtikli();
+  retroArtikalModal.style.display = 'flex';
+});
+
+document.getElementById('retroKolicinaMin').addEventListener('click', () => {
+  if (retroKolicina > 1) {
+    retroKolicina--;
+    document.getElementById('retroKolicinaDisplay').textContent = retroKolicina;
+    updateRetroUkupnoPreview();
+  }
+});
+
+document.getElementById('retroKolicinaPlus').addEventListener('click', () => {
+  retroKolicina++;
+  document.getElementById('retroKolicinaDisplay').textContent = retroKolicina;
+  updateRetroUkupnoPreview();
+});
+
+document.getElementById('retroCijenaInput').addEventListener('input', updateRetroUkupnoPreview);
+
+document.getElementById('retroArtikalKes').addEventListener('click', () => {
+  retroNacinPlacanja = 'kes';
+  document.getElementById('retroArtikalKes').classList.add('active');
+  document.getElementById('retroArtikalKartica').classList.remove('active');
+});
+
+document.getElementById('retroArtikalKartica').addEventListener('click', () => {
+  retroNacinPlacanja = 'kartica';
+  document.getElementById('retroArtikalKartica').classList.add('active');
+  document.getElementById('retroArtikalKes').classList.remove('active');
+});
+
+document.getElementById('retroArtikalCancel').addEventListener('click', () => {
+  retroArtikalModal.style.display = 'none';
+});
+
+document.getElementById('retroArtikalConfirm').addEventListener('click', async () => {
+  if (!retroArtikalId) {
+    showToast('Odaberi artikal');
+    return;
+  }
+  
+  const cijena = parseFloat(document.getElementById('retroCijenaInput').value);
+  if (isNaN(cijena) || cijena <= 0) {
+    showToast('Unesi ispravnu cijenu');
+    return;
+  }
+  
+  try {
+    await api.dodajProdaju(retroArtikalId, cijena, retroKolicina, retroNacinPlacanja, retroDatum);
+    const artikal = artikli.find(a => a.id === retroArtikalId);
+    showToast(`${artikal.ikona} ${artikal.naziv} dodan`);
+    retroArtikalModal.style.display = 'none';
+    renderKalendar();
+    selectDan(retroDatum);
+  } catch (error) {
+    showToast('Greška pri spremanju');
+  }
+});
+
+retroArtikalModal.addEventListener('click', (e) => {
+  if (e.target === retroArtikalModal) {
+    retroArtikalModal.style.display = 'none';
+  }
 });
 
 // ============ KALENDAR ============
@@ -520,7 +727,7 @@ const selectDan = async (datum) => {
       document.getElementById('danProdaje').innerHTML = `
         <h4>Sve prodaje</h4>
         ${prodaje.map(p => `
-          <div class="prodaja-item">
+          <div class="prodaja-item" data-id="${p._id}">
             <span class="prodaja-ikona">${p.artikal_ikona}</span>
             <div class="prodaja-info">
               <div class="prodaja-naziv">
@@ -531,9 +738,21 @@ const selectDan = async (datum) => {
               <div class="prodaja-meta">${p.vrijeme} • ${p.korisnik}</div>
             </div>
             <div class="prodaja-cijena">${formatCijena(p.ukupno || p.cijena)}</div>
+            <button class="prodaja-delete" title="Obriši">×</button>
           </div>
         `).join('')}
       `;
+      
+      // Dodaj delete listenere za retroaktivne prodaje
+      document.querySelectorAll('#danProdaje .prodaja-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const item = e.target.closest('.prodaja-item');
+          const id = item.dataset.id;
+          const naziv = item.querySelector('.prodaja-naziv').textContent.trim();
+          const cijena = item.querySelector('.prodaja-cijena').textContent;
+          showDeleteModal(id, `${naziv} - ${cijena}`);
+        });
+      });
     } else {
       document.getElementById('danProdaje').innerHTML = '';
     }
@@ -549,7 +768,7 @@ const selectDan = async (datum) => {
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     if (tab.dataset.tab === 'analitika' && userRole === 'limited') {
-      return; // Limited useri nemaju pristup
+      return;
     }
     
     tabs.forEach(t => t.classList.remove('active'));

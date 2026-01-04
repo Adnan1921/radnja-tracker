@@ -169,6 +169,17 @@
         <!-- Detalji dana -->
         <div class="dan-detalji" id="danDetalji" style="display: none;">
           <h3 class="dan-naslov" id="danNaslov"></h3>
+          
+          <!-- Retroaktivni unos tipke -->
+          <div class="retro-buttons">
+            <button class="retro-btn" id="btnRetroPromet">
+              💰 Unesi dnevni promet
+            </button>
+            <button class="retro-btn secondary" id="btnRetroArtikal">
+              ➕ Dodaj artikle
+            </button>
+          </div>
+          
           <div class="dan-statistika" id="danStatistika"></div>
           <div class="dan-prodaje" id="danProdaje"></div>
         </div>
@@ -187,6 +198,97 @@
         <div class="modal-buttons">
           <button class="modal-btn cancel" id="deleteCancel">Odustani</button>
           <button class="modal-btn confirm" id="deleteConfirm">Obriši</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Retroaktivni dnevni promet modal -->
+    <div class="modal-overlay" id="retroPrometModal" style="display: none;">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <h3>💰 Unesi dnevni promet</h3>
+          <span class="modal-datum" id="retroPrometDatum"></span>
+        </div>
+        
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Ukupan iznos</label>
+            <div class="cijena-input-wrapper">
+              <input type="number" id="retroPrometIznos" class="cijena-input" placeholder="0" step="1" min="0" inputmode="numeric">
+              <span class="valuta">KM</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Način plaćanja</label>
+            <div class="placanje-row">
+              <button class="placanje-btn active" id="retroPrometKes">💵 Keš</button>
+              <button class="placanje-btn" id="retroPrometKartica">💳 Kartica</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-buttons">
+          <button class="modal-btn cancel" id="retroPrometCancel">Odustani</button>
+          <button class="modal-btn confirm" id="retroPrometConfirm">Spremi</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Retroaktivni artikal modal -->
+    <div class="modal-overlay" id="retroArtikalModal" style="display: none;">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <h3>➕ Dodaj artikal</h3>
+          <span class="modal-datum" id="retroArtikalDatum"></span>
+        </div>
+        
+        <div class="modal-body">
+          <!-- Artikli grid -->
+          <div class="form-group">
+            <label>Artikal</label>
+            <div class="artikli-grid mini" id="retroArtikliGrid"></div>
+          </div>
+          
+          <!-- Količina -->
+          <div class="form-group">
+            <div class="kolicina-row">
+              <label>Količina:</label>
+              <div class="kolicina-controls">
+                <button class="kolicina-btn" id="retroKolicinaMin">−</button>
+                <span class="kolicina-display" id="retroKolicinaDisplay">1</span>
+                <button class="kolicina-btn" id="retroKolicinaPlus">+</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Cijena -->
+          <div class="form-group">
+            <label>Cijena</label>
+            <div class="cijena-input-wrapper">
+              <input type="number" id="retroCijenaInput" class="cijena-input" placeholder="0" step="1" min="0" inputmode="numeric">
+              <span class="valuta">KM</span>
+            </div>
+            <div class="brzi-iznosi" id="retroBrziIznosi"></div>
+          </div>
+          
+          <!-- Način plaćanja -->
+          <div class="form-group">
+            <div class="placanje-row">
+              <button class="placanje-btn active" id="retroArtikalKes">💵 Keš</button>
+              <button class="placanje-btn" id="retroArtikalKartica">💳 Kartica</button>
+            </div>
+          </div>
+          
+          <!-- Ukupno -->
+          <div class="ukupno-preview" id="retroUkupnoPreview">
+            Ukupno: <strong>0,00 KM</strong>
+          </div>
+        </div>
+        
+        <div class="modal-buttons">
+          <button class="modal-btn cancel" id="retroArtikalCancel">Odustani</button>
+          <button class="modal-btn confirm" id="retroArtikalConfirm">Spremi</button>
         </div>
       </div>
     </div>
