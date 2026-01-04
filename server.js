@@ -3,6 +3,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,18 +15,91 @@ const DB_NAME = 'radnja_tracker';
 let db;
 let client;
 
+// ============ RATE LIMITING ============
+
+// Općeniti rate limiter za sve rute
+const generalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuta
+  max: 100, // max 100 zahtjeva po minuti
+  message: { error: 'Previše zahtjeva, pokušajte ponovo za minutu' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stroži rate limiter za login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuta
+  max: 5, // max 5 pokušaja
+  message: { error: 'Previše pokušaja prijave, pokušajte ponovo za 15 minuta' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // ne broji uspješne loginove
+});
+
+// ============ VALIDATION HELPERS ============
+
+const validatePrice = (price) => {
+  const num = parseFloat(price);
+  if (isNaN(num) || num <= 0 || num > 100000) {
+    return { valid: false, error: 'Cijena mora biti između 0.01 i 100,000 KM' };
+  }
+  return { valid: true, value: num };
+};
+
+const validateQuantity = (quantity) => {
+  const num = parseInt(quantity);
+  if (isNaN(num) || num < 1 || num > 1000) {
+    return { valid: false, error: 'Količina mora biti između 1 i 1000' };
+  }
+  return { valid: true, value: num };
+};
+
+const validatePaymentMethod = (method) => {
+  if (!['kes', 'kartica'].includes(method)) {
+    return { valid: false, error: 'Način plaćanja mora biti "kes" ili "kartica"' };
+  }
+  return { valid: true, value: method };
+};
+
+const validateDate = (dateStr) => {
+  if (!dateStr) return { valid: true, value: null };
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateStr)) {
+    return { valid: false, error: 'Datum mora biti u formatu YYYY-MM-DD' };
+  }
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return { valid: false, error: 'Nevažeći datum' };
+  }
+  // Ne dopusti buduće datume
+  if (date > new Date()) {
+    return { valid: false, error: 'Ne možete unositi za buduće datume' };
+  }
+  return { valid: true, value: dateStr };
+};
+
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // Ograniči veličinu body-ja
+app.use(generalLimiter);
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// User roles - Sajra ima ograničen pristup
+// User roles
 const USER_ROLES = {
   'SanelaBiber': 'admin',
   'HarisBiber': 'admin',
   'Sajra': 'limited'
 };
+
+// NAPOMENA: Lozinke su uklonjene iz koda nakon inicijalnog setup-a
+// Korisnici se kreiraju samo ako ne postoje u bazi
+// Za promjenu lozinki koristiti direktno MongoDB
+const INITIAL_USERS = [
+  { username: 'SanelaBiber', role: 'admin' },
+  { username: 'HarisBiber', role: 'admin' },
+  { username: 'Sajra', role: 'limited' }
+];
 
 // Auth middleware
 const requireAuth = async (req, res, next) => {
@@ -66,13 +140,6 @@ const ARTIKLI = [
   { id: 6, naziv: 'Ostalo', ikona: '📦', shortcuti: [] }
 ];
 
-// Korisnici
-const KORISNICI = [
-  { username: 'SanelaBiber', password: 'sanela123', role: 'admin' },
-  { username: 'HarisBiber', password: 'haris123', role: 'admin' },
-  { username: 'Sajra', password: 'sajra123', role: 'limited' }
-];
-
 // Connect to MongoDB
 async function connectDB() {
   if (db) return db;
@@ -83,20 +150,35 @@ async function connectDB() {
     db = client.db(DB_NAME);
     console.log('✅ Povezan na MongoDB');
     
+    // Provjeri da li postoje korisnici - ako ne, kreiraj inicijalne
     const usersCollection = db.collection('users');
-    for (const user of KORISNICI) {
-      const exists = await usersCollection.findOne({ username: user.username });
-      if (!exists) {
-        const hashedPassword = await bcrypt.hash(user.password, 10);
+    const existingUsers = await usersCollection.countDocuments();
+    
+    if (existingUsers === 0) {
+      // Prvi put - kreiraj korisnike s default lozinkama
+      // NAPOMENA: Ove lozinke treba promijeniti nakon prvog logina!
+      console.log('⚠️  Kreiranje inicijalnih korisnika s default lozinkama...');
+      const defaultPasswords = {
+        'SanelaBiber': process.env.INIT_PASS_SANELA || 'CHANGE_ME_sanela',
+        'HarisBiber': process.env.INIT_PASS_HARIS || 'CHANGE_ME_haris', 
+        'Sajra': process.env.INIT_PASS_SAJRA || 'CHANGE_ME_sajra'
+      };
+      
+      for (const user of INITIAL_USERS) {
+        const hashedPassword = await bcrypt.hash(defaultPasswords[user.username], 12);
         await usersCollection.insertOne({
           username: user.username,
           password: hashedPassword,
-          role: user.role
+          role: user.role,
+          createdAt: new Date(),
+          passwordChangedAt: null // Označava da treba promijeniti lozinku
         });
-        console.log(`👤 Kreiran korisnik: ${user.username} (${user.role})`);
+        console.log(`👤 Kreiran korisnik: ${user.username}`);
       }
+      console.log('⚠️  VAŽNO: Postavite prave lozinke kroz environment varijable ili MongoDB!');
     }
     
+    // Kreiraj indekse
     await db.collection('prodaje').createIndex({ datum: 1 });
     await db.collection('prodaje').createIndex({ korisnik: 1 });
     await db.collection('sessions').createIndex({ token: 1 });
@@ -121,11 +203,20 @@ app.use(async (req, res, next) => {
 
 // ============ AUTH ROUTES ============
 
-app.post('/api/login', async (req, res) => {
+// Login - sa rate limitingom
+app.post('/api/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   
+  // Validacija inputa
+  if (!username || typeof username !== 'string' || username.length > 50) {
+    return res.status(400).json({ error: 'Nevažeće korisničko ime' });
+  }
+  if (!password || typeof password !== 'string' || password.length > 100) {
+    return res.status(400).json({ error: 'Nevažeća lozinka' });
+  }
+  
   try {
-    const user = await db.collection('users').findOne({ username });
+    const user = await db.collection('users').findOne({ username: username.trim() });
     if (!user) {
       return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka' });
     }
@@ -135,13 +226,17 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Pogrešno korisničko ime ili lozinka' });
     }
     
+    // Generiraj siguran token
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // Token traje 7 dana (produženo s 24 sata)
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     
     await db.collection('sessions').insertOne({
       token,
       username: user.username,
-      expiresAt
+      expiresAt,
+      createdAt: new Date(),
+      userAgent: req.headers['user-agent'] || 'unknown'
     });
     
     const role = USER_ROLES[user.username] || 'limited';
@@ -186,31 +281,56 @@ app.get('/api/artikli', requireAuth, (req, res) => {
   res.json(ARTIKLI);
 });
 
-// Dodaj novu prodaju - podržava retroaktivni unos
+// Dodaj novu prodaju - sa validacijom
 app.post('/api/prodaje', requireAuth, async (req, res) => {
   const { artikal_id, cijena, kolicina = 1, nacin_placanja = 'kes', datum: customDatum } = req.body;
-  const now = new Date();
   
-  // Koristi custom datum ako je proslijeđen, inače danas
-  const datum = customDatum || now.toISOString().split('T')[0];
-  const vrijeme = customDatum ? 'retroaktivno' : now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
+  // Validacija
+  const priceValidation = validatePrice(cijena);
+  if (!priceValidation.valid) {
+    return res.status(400).json({ error: priceValidation.error });
+  }
+  
+  const quantityValidation = validateQuantity(kolicina);
+  if (!quantityValidation.valid) {
+    return res.status(400).json({ error: quantityValidation.error });
+  }
+  
+  const paymentValidation = validatePaymentMethod(nacin_placanja);
+  if (!paymentValidation.valid) {
+    return res.status(400).json({ error: paymentValidation.error });
+  }
+  
+  const dateValidation = validateDate(customDatum);
+  if (!dateValidation.valid) {
+    return res.status(400).json({ error: dateValidation.error });
+  }
   
   const artikal = ARTIKLI.find(a => a.id === artikal_id);
   if (!artikal) {
     return res.status(400).json({ error: 'Nepoznat artikal' });
   }
   
-  const ukupnaCijena = parseFloat(cijena) * parseInt(kolicina);
+  const now = new Date();
+  const datum = dateValidation.value || now.toISOString().split('T')[0];
+  const vrijeme = dateValidation.value ? 'retroaktivno' : now.toLocaleTimeString('bs-BA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Sarajevo' });
+  
+  const ukupnaCijena = priceValidation.value * quantityValidation.value;
+  
+  // Dodatna provjera za ukupnu cijenu
+  if (ukupnaCijena > 1000000) {
+    return res.status(400).json({ error: 'Ukupna cijena prelazi maksimum' });
+  }
   
   try {
     const result = await db.collection('prodaje').insertOne({
       artikal_id,
       artikal_naziv: artikal.naziv,
       artikal_ikona: artikal.ikona,
-      cijena: parseFloat(cijena),
-      kolicina: parseInt(kolicina),
+      cijena: priceValidation.value,
+      kolicina: quantityValidation.value,
       ukupno: ukupnaCijena,
-      nacin_placanja,
+      nacin_placanja: paymentValidation.value,
       datum,
       vrijeme,
       korisnik: req.user.username,
@@ -224,29 +344,38 @@ app.post('/api/prodaje', requireAuth, async (req, res) => {
   }
 });
 
-// Dodaj dnevni promet (brzi unos bez artikala)
+// Dodaj dnevni promet - sa validacijom
 app.post('/api/dnevni-promet', requireAuth, async (req, res) => {
   const { iznos, nacin_placanja = 'kes', datum } = req.body;
-  const now = new Date();
   
-  if (!datum) {
+  // Validacija
+  const priceValidation = validatePrice(iznos);
+  if (!priceValidation.valid) {
+    return res.status(400).json({ error: priceValidation.error });
+  }
+  
+  const paymentValidation = validatePaymentMethod(nacin_placanja);
+  if (!paymentValidation.valid) {
+    return res.status(400).json({ error: paymentValidation.error });
+  }
+  
+  const dateValidation = validateDate(datum);
+  if (!dateValidation.valid || !dateValidation.value) {
     return res.status(400).json({ error: 'Datum je obavezan' });
   }
   
-  if (!iznos || parseFloat(iznos) <= 0) {
-    return res.status(400).json({ error: 'Iznos mora biti veći od 0' });
-  }
+  const now = new Date();
   
   try {
     const result = await db.collection('prodaje').insertOne({
       artikal_id: 0,
       artikal_naziv: 'Dnevni promet',
       artikal_ikona: '💰',
-      cijena: parseFloat(iznos),
+      cijena: priceValidation.value,
       kolicina: 1,
-      ukupno: parseFloat(iznos),
-      nacin_placanja,
-      datum,
+      ukupno: priceValidation.value,
+      nacin_placanja: paymentValidation.value,
+      datum: dateValidation.value,
       vrijeme: 'dnevni promet',
       korisnik: req.user.username,
       createdAt: now,
@@ -260,14 +389,19 @@ app.post('/api/dnevni-promet', requireAuth, async (req, res) => {
   }
 });
 
-// Dohvati prodaje - limited users vide samo svoje
+// Dohvati prodaje
 app.get('/api/prodaje/:datum', requireAuth, async (req, res) => {
   const { datum } = req.params;
+  
+  // Validacija datuma
+  const dateValidation = validateDate(datum);
+  if (!dateValidation.valid) {
+    return res.status(400).json({ error: dateValidation.error });
+  }
   
   try {
     let query = { datum };
     
-    // Limited users vide samo svoje prodaje
     if (req.user.role === 'limited') {
       query.korisnik = req.user.username;
     }
@@ -275,6 +409,7 @@ app.get('/api/prodaje/:datum', requireAuth, async (req, res) => {
     const prodaje = await db.collection('prodaje')
       .find(query)
       .sort({ createdAt: -1 })
+      .limit(500) // Ograniči broj rezultata
       .toArray();
     
     res.json(prodaje);
@@ -283,9 +418,14 @@ app.get('/api/prodaje/:datum', requireAuth, async (req, res) => {
   }
 });
 
-// Statistika - limited users vide samo svoje
+// Statistika
 app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
   const { datum } = req.params;
+  
+  const dateValidation = validateDate(datum);
+  if (!dateValidation.valid) {
+    return res.status(400).json({ error: dateValidation.error });
+  }
   
   try {
     let query = { datum };
@@ -299,7 +439,6 @@ app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
     const broj_prodaja = prodaje.length;
     const ukupno_kolicina = prodaje.reduce((sum, p) => sum + (p.kolicina || 1), 0);
     
-    // Statistika po načinu plaćanja
     const kes = prodaje.filter(p => p.nacin_placanja !== 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
     const kartica = prodaje.filter(p => p.nacin_placanja === 'kartica').reduce((sum, p) => sum + (p.ukupno || p.cijena), 0);
     
@@ -332,10 +471,21 @@ app.get('/api/statistika/:datum', requireAuth, async (req, res) => {
   }
 });
 
-// Mjesečna statistika - limited users vide samo svoje
+// Mjesečna statistika
 app.get('/api/statistika/mjesec/:godina/:mjesec', requireAuth, async (req, res) => {
   const { godina, mjesec } = req.params;
-  const pattern = `${godina}-${mjesec.padStart(2, '0')}`;
+  
+  // Validacija
+  const godinaNum = parseInt(godina);
+  const mjesecNum = parseInt(mjesec);
+  if (isNaN(godinaNum) || godinaNum < 2020 || godinaNum > 2100) {
+    return res.status(400).json({ error: 'Nevažeća godina' });
+  }
+  if (isNaN(mjesecNum) || mjesecNum < 1 || mjesecNum > 12) {
+    return res.status(400).json({ error: 'Nevažeći mjesec' });
+  }
+  
+  const pattern = `${godina}-${String(mjesecNum).padStart(2, '0')}`;
   
   try {
     let query = { datum: { $regex: `^${pattern}` } };
@@ -375,8 +525,12 @@ app.get('/api/statistika/mjesec/:godina/:mjesec', requireAuth, async (req, res) 
 app.delete('/api/prodaje/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   
+  // Validacija ObjectId
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Nevažeći ID' });
+  }
+  
   try {
-    // Limited users mogu brisati samo svoje
     let query = { _id: new ObjectId(id) };
     if (req.user.role === 'limited') {
       query.korisnik = req.user.username;
